@@ -1,8 +1,8 @@
-
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
 export type ElementType = 'heading' | 'text' | 'image' | 'button' | 'section';
 export type UserRole = 'viewer' | 'editor' | 'admin';
+export type SectionType = 'content' | 'header' | 'footer';
 
 export interface PageElement {
   id: string;
@@ -29,7 +29,7 @@ export interface Section {
     gridRows?: string;
     gridGap?: string;
   };
-  type?: 'content' | 'header' | 'footer';
+  type?: SectionType;
 }
 
 export interface Page {
@@ -65,8 +65,8 @@ interface EditorContextType {
   setUserRole: (role: UserRole) => void;
   publishPage: (pageId: string) => void;
   unpublishPage: (pageId: string) => void;
-  replaceHeaderSection: (pageId: string, section: Section) => void;
-  replaceFooterSection: (pageId: string, section: Section) => void;
+  replaceHeaderSection: (pageId: string, newHeaderSection: Section) => void;
+  replaceFooterSection: (pageId: string, newFooterSection: Section) => void;
 }
 
 export const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -348,7 +348,10 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           const updatedSections = [...page.sections];
           
           // Set type for new header section
-          const sectionWithType = { ...newHeaderSection, type: 'header' };
+          const sectionWithType: Section = { 
+            ...newHeaderSection, 
+            type: 'header' as SectionType 
+          };
           
           if (headerIndex >= 0) {
             // Replace existing header
@@ -377,7 +380,10 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           const updatedSections = [...page.sections];
           
           // Set type for new footer section
-          const sectionWithType = { ...newFooterSection, type: 'footer' };
+          const sectionWithType: Section = { 
+            ...newFooterSection, 
+            type: 'footer' as SectionType 
+          };
           
           if (footerIndex >= 0) {
             // Replace existing footer
@@ -438,7 +444,6 @@ export const useEditor = () => {
   return context;
 };
 
-// Default homepage data
 const defaultHomePage: Page = {
   id: 'home-page',
   title: 'Home',
@@ -493,7 +498,7 @@ const defaultHomePage: Page = {
         {
           id: 'hero-text',
           type: 'text',
-          content: 'Edit konten, gambar, dan tata letak website Anda tanpa perlu keahlian coding. Solusi website builder yang kuat dan simpel.',
+          content: 'Edit konten, gambar, dan tata letak website Anda tanpa perlu reload halaman.',
           properties: {
             className: 'text-lg md:text-xl text-white text-center max-w-3xl mx-auto mb-8'
           }

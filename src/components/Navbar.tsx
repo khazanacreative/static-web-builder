@@ -51,7 +51,8 @@ const Navbar: React.FC = () => {
       toast({
         title: "Page Published",
         description: `${currentPage.title} has been published successfully.`,
-        variant: "success",
+        // Changed from 'success' to 'default' as 'success' is not a valid variant
+        variant: "default",
       });
     }
   };
