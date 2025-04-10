@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
 export type ElementType = 'heading' | 'text' | 'image' | 'button' | 'section';
@@ -44,6 +45,7 @@ export interface Section {
     gridRows?: string;
     gridGap?: string;
     gridType?: string;
+    isDraggableGrid?: boolean;  // Added this property
   };
   type?: SectionType;
 }

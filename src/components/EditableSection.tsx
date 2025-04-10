@@ -63,6 +63,7 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
     moveSectionDown,
     addElement,
     updateSection,
+    updateElement,
     userRole
   } = useEditor();
   
