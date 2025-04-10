@@ -1,9 +1,10 @@
-
 import React, { useState } from 'react';
 import { useEditor } from '@/context/EditorContext';
-import { Plus, Settings, Layers, FileText, LayoutGrid, Type } from 'lucide-react';
+import { Plus, Settings, Layers, FileText, LayoutGrid, Type, Save, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TextStyleEditor } from './TextStyleEditor';
+import { Button } from './ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const EditorSidebar: React.FC = () => {
   const { 
@@ -17,15 +18,39 @@ const EditorSidebar: React.FC = () => {
     getSelectedElement,
     updateElement,
     replaceHeaderSection,
-    replaceFooterSection
+    replaceFooterSection,
+    saveEditorChanges
   } = useEditor();
   
   const [activeTab, setActiveTab] = useState<'pages' | 'elements'>('pages');
   const selectedElementData = getSelectedElement();
   const canEdit = userRole === 'admin' || userRole === 'editor';
   const isAdmin = userRole === 'admin';
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!isEditMode || !canEdit) return null;
+
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    try {
+      await saveEditorChanges();
+      toast({
+        title: "Perubahan tersimpan",
+        description: "Semua perubahan editor telah berhasil disimpan",
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: "Gagal menyimpan",
+        description: "Terjadi kesalahan saat menyimpan perubahan",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleAddPage = () => {
     const newPageId = `page-${Date.now()}`;
@@ -222,8 +247,21 @@ const EditorSidebar: React.FC = () => {
 
   return (
     <div className="bg-white border-l shadow-lg fixed right-0 top-0 h-full w-72 z-10 overflow-auto">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b flex justify-between items-center">
         <h2 className="font-medium text-xl">Page Editor</h2>
+        <Button 
+          onClick={handleSaveChanges} 
+          size="sm" 
+          className="bg-editor-blue text-white hover:bg-editor-blue/90"
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-1" />
+          )}
+          Simpan
+        </Button>
       </div>
       
       <div className="flex border-b">

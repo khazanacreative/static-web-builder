@@ -87,6 +87,7 @@ interface EditorContextType {
   replaceHeaderSection: (pageId: string, newHeaderSection: Section) => void;
   replaceFooterSection: (pageId: string, newFooterSection: Section) => void;
   updateNavigation: (items: MenuItem[]) => void;
+  saveEditorChanges: () => Promise<void>;
 }
 
 export const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -437,6 +438,15 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setNavigation(sortedItems);
   };
 
+  const saveEditorChanges = async (): Promise<void> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.log('Changes saved successfully');
+        resolve();
+      }, 1000);
+    });
+  };
+
   const value = {
     pages,
     currentPageId,
@@ -465,7 +475,8 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     unpublishPage,
     replaceHeaderSection,
     replaceFooterSection,
-    updateNavigation
+    updateNavigation,
+    saveEditorChanges
   };
 
   return (
