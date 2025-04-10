@@ -329,7 +329,7 @@ export const NavigationManager = () => {
     
     toast({
       title: "Page Created",
-      description: `"${newPageTitle}" page has been created and added to navigation.`,
+      description: `"${newPageTitle}" page has been created and added to navigation.",
       variant: "default",
     });
   };
@@ -378,6 +378,13 @@ export const NavigationManager = () => {
       value = `/${value}`;
     }
     setNewPageSlug(value);
+  };
+  
+  const handleDisplayModeChange = (value: 'text' | 'logo' | 'both') => {
+    setWebsiteIdentity({
+      ...websiteIdentity,
+      displayMode: value
+    });
   };
   
   if (!isAdmin) return null;
