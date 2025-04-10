@@ -4,12 +4,58 @@ import { Section } from '@/context/EditorContext';
 import { useEditor } from '@/context/EditorContext';
 import EditableElement from './EditableElement';
 import { cn } from '@/lib/utils';
-import { ArrowUp, ArrowDown, Copy, Trash2, Grid3X3, LayoutGrid } from 'lucide-react';
+import { ArrowUp, ArrowDown, Copy, Trash2, LayoutGrid, ArrowsVertical } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface EditableSectionProps {
   section: Section;
   pageId: string;
 }
+
+interface GridOption {
+  value: string;
+  label: string;
+  columns: string;
+  rows: string;
+}
+
+// Grid layout options
+const GRID_OPTIONS: GridOption[] = [
+  { value: '1x1', label: '1×1 Grid', columns: 'grid-cols-1', rows: 'grid-rows-1' },
+  { value: '1x2', label: '1×2 Grid', columns: 'grid-cols-1', rows: 'grid-rows-2' },
+  { value: '1x3', label: '1×3 Grid', columns: 'grid-cols-1', rows: 'grid-rows-3' },
+  { value: '1x4', label: '1×4 Grid', columns: 'grid-cols-1', rows: 'grid-rows-4' },
+  { value: '2x1', label: '2×1 Grid', columns: 'grid-cols-2', rows: 'grid-rows-1' },
+  { value: '2x2', label: '2×2 Grid', columns: 'grid-cols-2', rows: 'grid-rows-2' },
+  { value: '2x3', label: '2×3 Grid', columns: 'grid-cols-2', rows: 'grid-rows-3' },
+  { value: '2x4', label: '2×4 Grid', columns: 'grid-cols-2', rows: 'grid-rows-4' },
+  { value: '3x1', label: '3×1 Grid', columns: 'grid-cols-3', rows: 'grid-rows-1' },
+  { value: '3x2', label: '3×2 Grid', columns: 'grid-cols-3', rows: 'grid-rows-2' },
+  { value: '3x3', label: '3×3 Grid', columns: 'grid-cols-3', rows: 'grid-rows-3' },
+  { value: '4x1', label: '4×1 Grid', columns: 'grid-cols-4', rows: 'grid-rows-1' },
+  { value: '4x2', label: '4×2 Grid', columns: 'grid-cols-4', rows: 'grid-rows-2' },
+];
+
+// Section height options
+const HEIGHT_OPTIONS = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'h-screen', label: 'Full Screen' },
+  { value: 'h-[500px]', label: '500px' },
+  { value: 'h-[600px]', label: '600px' },
+  { value: 'h-[700px]', label: '700px' },
+  { value: 'h-[800px]', label: '800px' },
+  { value: 'min-h-[300px]', label: 'Min 300px' },
+  { value: 'min-h-[400px]', label: 'Min 400px' },
+  { value: 'min-h-[500px]', label: 'Min 500px' },
+  { value: 'min-h-[600px]', label: 'Min 600px' },
+];
 
 const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) => {
   const { 
@@ -24,6 +70,7 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
   } = useEditor();
   
   const [showGridSettings, setShowGridSettings] = useState(false);
+  const [showSectionSettings, setShowSectionSettings] = useState(false);
   
   const canEdit = userRole === 'admin' || userRole === 'editor';
 
@@ -91,6 +138,31 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
     });
   };
 
+  const handleHeightChange = (value: string) => {
+    updateSection(pageId, section.id, {
+      properties: {
+        ...section.properties,
+        height: value
+      }
+    });
+  };
+
+  const handleGridTypeChange = (gridType: string) => {
+    const selectedGrid = GRID_OPTIONS.find(option => option.value === gridType);
+    
+    if (selectedGrid) {
+      updateSection(pageId, section.id, {
+        properties: {
+          ...section.properties,
+          isGridLayout: true,
+          gridType: gridType,
+          gridColumns: selectedGrid.columns,
+          gridRows: selectedGrid.rows
+        }
+      });
+    }
+  };
+
   const toggleGridLayout = () => {
     updateSection(pageId, section.id, {
       properties: {
@@ -103,26 +175,52 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
     });
   };
 
-  const handleGridColumnsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleGridGapChange = (value: number[]) => {
+    const gapSize = value[0];
+    let gapClass = 'gap-4'; // Default
+    
+    if (gapSize <= 0) gapClass = 'gap-0';
+    else if (gapSize <= 2) gapClass = 'gap-1';
+    else if (gapSize <= 4) gapClass = 'gap-2';
+    else if (gapSize <= 6) gapClass = 'gap-3';
+    else if (gapSize <= 8) gapClass = 'gap-4';
+    else if (gapSize <= 10) gapClass = 'gap-5';
+    else if (gapSize <= 12) gapClass = 'gap-6';
+    else if (gapSize <= 14) gapClass = 'gap-8';
+    else gapClass = 'gap-10';
+    
     updateSection(pageId, section.id, {
       properties: {
         ...section.properties,
-        gridColumns: e.target.value
+        gridGap: gapClass
       }
     });
   };
 
-  const handleGridGapChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updateSection(pageId, section.id, {
-      properties: {
-        ...section.properties,
-        gridGap: e.target.value
-      }
-    });
+  // Extract current gap value for slider
+  const getCurrentGapValue = () => {
+    const gapClass = section.properties?.gridGap || 'gap-4';
+    const gapValue = parseInt(gapClass.replace('gap-', '')) || 4;
+    
+    // Map gap class to slider value
+    switch (gapValue) {
+      case 0: return 0;
+      case 1: return 2;
+      case 2: return 4;
+      case 3: return 6;
+      case 4: return 8;
+      case 5: return 10;
+      case 6: return 12;
+      case 8: return 14;
+      case 10: return 16;
+      default: return 8;
+    }
   };
 
   // Determine if this section uses grid layout
   const isGridLayout = section.properties?.isGridLayout;
+  const currentHeight = section.properties?.height || 'auto';
+  const currentGridType = section.properties?.gridType || '1x1';
 
   return (
     <div
@@ -131,6 +229,7 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
         section.properties?.backgroundColor || 'bg-white',
         section.properties?.paddingY || 'py-8',
         section.properties?.paddingX || 'px-4',
+        section.properties?.height || 'auto',
         section.type === 'header' && 'sticky top-0 z-50',
         section.type === 'footer' && 'mt-auto'
       )}
@@ -217,6 +316,16 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
               <Copy size={16} />
             </button>
             <button
+              onClick={() => setShowSectionSettings(!showSectionSettings)}
+              className={cn(
+                "p-1 hover:bg-gray-100",
+                showSectionSettings ? "text-editor-blue" : ""
+              )}
+              title="Section Height"
+            >
+              <ArrowsVertical size={16} />
+            </button>
+            <button
               onClick={() => setShowGridSettings(!showGridSettings)}
               className={cn(
                 "p-1 hover:bg-gray-100",
@@ -234,6 +343,28 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
               <Trash2 size={16} />
             </button>
           </div>
+
+          {showSectionSettings && (
+            <div className="absolute top-12 right-2 bg-white shadow-xl rounded-md p-4 z-50 w-64">
+              <h4 className="font-medium mb-3">Section Height</h4>
+              
+              <Select
+                value={currentHeight}
+                onValueChange={handleHeightChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select height" />
+                </SelectTrigger>
+                <SelectContent>
+                  {HEIGHT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {showGridSettings && (
             <div className="absolute top-12 right-2 bg-white shadow-xl rounded-md p-4 z-50 w-64">
@@ -253,33 +384,38 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
               {isGridLayout && (
                 <>
                   <div className="mb-3">
-                    <label className="block text-sm mb-1">Columns</label>
-                    <select 
-                      value={section.properties?.gridColumns || 'grid-cols-1 md:grid-cols-3'} 
-                      onChange={handleGridColumnsChange}
-                      className="w-full p-1 border rounded text-sm"
+                    <label className="block text-sm mb-1">Grid Type</label>
+                    <Select
+                      value={currentGridType}
+                      onValueChange={handleGridTypeChange}
                     >
-                      <option value="grid-cols-1 md:grid-cols-2">2 Columns</option>
-                      <option value="grid-cols-1 md:grid-cols-3">3 Columns</option>
-                      <option value="grid-cols-1 md:grid-cols-4">4 Columns</option>
-                      <option value="grid-cols-1 md:grid-cols-6">6 Columns</option>
-                      <option value="grid-cols-1 md:grid-cols-12">12 Columns</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select grid" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GRID_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div className="mb-3">
-                    <label className="block text-sm mb-1">Gap</label>
-                    <select 
-                      value={section.properties?.gridGap || 'gap-4'} 
-                      onChange={handleGridGapChange}
-                      className="w-full p-1 border rounded text-sm"
-                    >
-                      <option value="gap-0">None</option>
-                      <option value="gap-2">Small</option>
-                      <option value="gap-4">Medium</option>
-                      <option value="gap-6">Large</option>
-                      <option value="gap-8">Extra Large</option>
-                    </select>
+                    <label className="block text-sm mb-1">Gap Size</label>
+                    <Slider
+                      defaultValue={[getCurrentGapValue()]}
+                      max={16}
+                      step={2}
+                      onValueChange={handleGridGapChange}
+                      className="py-4"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>None</span>
+                      <span>Small</span>
+                      <span>Large</span>
+                    </div>
                   </div>
                 </>
               )}

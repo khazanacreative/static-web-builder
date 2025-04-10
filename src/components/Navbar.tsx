@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Pencil, Eye, ChevronDown, Globe, Lock, User, UserCog } from 'lucide-react';
+import { Pencil, Eye, ChevronDown, Globe, Lock, User, UserCog, Menu } from 'lucide-react';
 import { useEditor } from '@/context/EditorContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -22,13 +22,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from "@/components/ui/navigation-menu";
 import { useToast } from "@/components/ui/use-toast";
+import { NavigationManager } from './NavigationManager';
 
 const Navbar: React.FC = () => {
-  const { isEditMode, toggleEditMode, pages, currentPageId, userRole, setUserRole, publishPage, unpublishPage } = useEditor();
+  const { isEditMode, toggleEditMode, pages, currentPageId, userRole, setUserRole, publishPage, unpublishPage, navigation } = useEditor();
   const { toast } = useToast();
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const currentPage = pages.find((page) => page.id === currentPageId);
   
@@ -87,9 +97,32 @@ const Navbar: React.FC = () => {
             <Link to="/" className="text-xl font-bold text-editor-blue">
               Website Builder
             </Link>
+            
+            <div className="hidden md:flex ml-6">
+              <NavigationMenu>
+                <NavigationMenuList>
+                  {navigation.map((item) => (
+                    <NavigationMenuItem key={item.id}>
+                      <Link to={item.url} className="px-3 py-2 text-gray-700 hover:text-editor-blue">
+                        {item.title}
+                      </Link>
+                    </NavigationMenuItem>
+                  ))}
+                </NavigationMenuList>
+              </NavigationMenu>
+            </div>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="md:hidden">
+            <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          <div className="hidden md:flex items-center space-x-4">
+            {/* Navigation Manager */}
+            {userRole === 'admin' && <NavigationManager />}
+            
             {/* Role Selector */}
             <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
               <DialogTrigger asChild>
@@ -210,6 +243,52 @@ const Navbar: React.FC = () => {
             </DropdownMenu>
           </div>
         </div>
+        
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden py-3 border-t">
+            <div className="space-y-1">
+              {navigation.map((item) => (
+                <Link 
+                  key={item.id}
+                  to={item.url}
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-editor-blue"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.title}
+                </Link>
+              ))}
+            </div>
+            
+            <div className="mt-3 pt-3 border-t space-y-2 px-4">
+              {userRole === 'admin' && <NavigationManager />}
+              
+              <Button
+                variant={isEditMode ? "default" : "outline"}
+                size="sm"
+                onClick={handleToggleEditMode}
+                className={cn(
+                  'w-full justify-center',
+                  userRole === 'viewer' && 'opacity-50 cursor-not-allowed'
+                )}
+                disabled={userRole === 'viewer'}
+              >
+                {isEditMode ? "Preview Mode" : "Edit Mode"}
+              </Button>
+              
+              {userRole === 'admin' && (
+                <Button 
+                  variant="default"
+                  size="sm" 
+                  className="w-full justify-center bg-green-600 hover:bg-green-700"
+                  onClick={() => setPublishDialogOpen(true)}
+                >
+                  {currentPage?.isPublished ? 'Published' : 'Publish'}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

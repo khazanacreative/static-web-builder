@@ -4,6 +4,13 @@ export type ElementType = 'heading' | 'text' | 'image' | 'button' | 'section';
 export type UserRole = 'viewer' | 'editor' | 'admin';
 export type SectionType = 'content' | 'header' | 'footer';
 
+export interface MenuItem {
+  id: string;
+  title: string;
+  url: string;
+  order: number;
+}
+
 export interface PageElement {
   id: string;
   type: ElementType;
@@ -15,6 +22,13 @@ export interface PageElement {
     columnSpan: string;
     rowSpan: string;
   };
+  textStyle?: {
+    fontFamily: string;
+    fontSize: string;
+    lineHeight: string;
+    letterSpacing: string;
+    textAlign: string;
+  };
 }
 
 export interface Section {
@@ -24,10 +38,12 @@ export interface Section {
     backgroundColor?: string;
     paddingY?: string;
     paddingX?: string;
+    height?: string;
     isGridLayout?: boolean;
     gridColumns?: string;
     gridRows?: string;
     gridGap?: string;
+    gridType?: string;
   };
   type?: SectionType;
 }
@@ -47,6 +63,7 @@ interface EditorContextType {
   isEditMode: boolean;
   selectedElementId: string | null;
   userRole: UserRole;
+  navigation: MenuItem[];
   addPage: (page: Page) => void;
   setCurrentPageId: (id: string) => void;
   updatePage: (pageId: string, updatedPage: Partial<Page>) => void;
@@ -67,6 +84,7 @@ interface EditorContextType {
   unpublishPage: (pageId: string) => void;
   replaceHeaderSection: (pageId: string, newHeaderSection: Section) => void;
   replaceFooterSection: (pageId: string, newFooterSection: Section) => void;
+  updateNavigation: (items: MenuItem[]) => void;
 }
 
 export const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -77,6 +95,7 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<UserRole>('viewer');
+  const [navigation, setNavigation] = useState<MenuItem[]>(defaultNavigation);
 
   const addPage = (page: Page) => {
     setPages((prevPages) => [...prevPages, page]);
@@ -403,12 +422,19 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     );
   };
 
+  const updateNavigation = (items: MenuItem[]) => {
+    // Sort items by order
+    const sortedItems = [...items].sort((a, b) => a.order - b.order);
+    setNavigation(sortedItems);
+  };
+
   const value = {
     pages,
     currentPageId,
     isEditMode,
     selectedElementId,
     userRole,
+    navigation,
     addPage,
     setCurrentPageId,
     updatePage,
@@ -428,7 +454,8 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     publishPage,
     unpublishPage,
     replaceHeaderSection,
-    replaceFooterSection
+    replaceFooterSection,
+    updateNavigation
   };
 
   return (
@@ -443,6 +470,33 @@ export const useEditor = () => {
   }
   return context;
 };
+
+const defaultNavigation: MenuItem[] = [
+  {
+    id: 'home-link',
+    title: 'Home',
+    url: '/',
+    order: 0
+  },
+  {
+    id: 'about-link',
+    title: 'About',
+    url: '/about',
+    order: 1
+  },
+  {
+    id: 'services-link',
+    title: 'Services',
+    url: '/services',
+    order: 2
+  },
+  {
+    id: 'contact-link',
+    title: 'Contact',
+    url: '/contact',
+    order: 3
+  }
+];
 
 const defaultHomePage: Page = {
   id: 'home-page',

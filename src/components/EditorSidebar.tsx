@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
 import { useEditor } from '@/context/EditorContext';
-import { Plus, Settings, Layers, FileText, Grid3X3, LayoutGrid } from 'lucide-react';
+import { Plus, Settings, Layers, FileText, LayoutGrid, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TextStyleEditor } from './TextStyleEditor';
 
 const EditorSidebar: React.FC = () => {
   const { 
@@ -161,10 +161,8 @@ const EditorSidebar: React.FC = () => {
     const { pageId, sectionId, element } = selectedElementData;
     const currentClassName = element.properties?.className || '';
     
-    // Remove any existing text color classes
     const cleanedClassName = currentClassName.replace(/text-\w+-\d+|text-\w+/g, '').trim();
     
-    // Add new color class
     const newClassName = `${cleanedClassName} ${color}`;
     
     updateElement(pageId, sectionId, element.id, {
@@ -181,10 +179,8 @@ const EditorSidebar: React.FC = () => {
     const { pageId, sectionId, element } = selectedElementData;
     const currentClassName = element.properties?.className || '';
     
-    // Remove any existing text alignment classes
     const cleanedClassName = currentClassName.replace(/text-left|text-center|text-right/g, '').trim();
     
-    // Add new alignment class
     const newClassName = `${cleanedClassName} ${align}`;
     
     updateElement(pageId, sectionId, element.id, {
@@ -213,7 +209,6 @@ const EditorSidebar: React.FC = () => {
     });
   };
 
-  // Get the current section to check if it uses grid layout
   const currentPage = pages.find(page => page.id === currentPageId);
   let currentSectionUsesGrid = false;
   
@@ -222,8 +217,10 @@ const EditorSidebar: React.FC = () => {
     currentSectionUsesGrid = section?.properties?.isGridLayout || false;
   }
 
+  const isTextElement = selectedElementData && ['heading', 'text', 'button'].includes(selectedElementData.element.type);
+
   return (
-    <div className="bg-white border-l shadow-lg fixed right-0 top-0 h-full w-72 z-10">
+    <div className="bg-white border-l shadow-lg fixed right-0 top-0 h-full w-72 z-10 overflow-auto">
       <div className="p-4 border-b">
         <h2 className="font-medium text-xl">Page Editor</h2>
       </div>
@@ -328,51 +325,38 @@ const EditorSidebar: React.FC = () => {
             <div>
               <h3 className="font-medium mb-4">Element Settings: {selectedElementData.element.type}</h3>
               
-              {(['heading', 'text', 'button'].includes(selectedElementData.element.type)) && (
-                <>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium mb-2">Text Color</label>
-                    <div className="grid grid-cols-5 gap-2">
-                      <button onClick={() => updateElementColor('text-black')} className="w-6 h-6 bg-black rounded-full" />
-                      <button onClick={() => updateElementColor('text-white')} className="w-6 h-6 bg-white border rounded-full" />
-                      <button onClick={() => updateElementColor('text-editor-blue')} className="w-6 h-6 bg-editor-blue rounded-full" />
-                      <button onClick={() => updateElementColor('text-editor-purple')} className="w-6 h-6 bg-editor-purple rounded-full" />
-                      <button onClick={() => updateElementColor('text-editor-teal')} className="w-6 h-6 bg-editor-teal rounded-full" />
-                      <button onClick={() => updateElementColor('text-gray-700')} className="w-6 h-6 bg-gray-700 rounded-full" />
-                      <button onClick={() => updateElementColor('text-red-500')} className="w-6 h-6 bg-red-500 rounded-full" />
-                      <button onClick={() => updateElementColor('text-yellow-500')} className="w-6 h-6 bg-yellow-500 rounded-full" />
-                      <button onClick={() => updateElementColor('text-green-500')} className="w-6 h-6 bg-green-500 rounded-full" />
-                      <button onClick={() => updateElementColor('text-editor-indigo')} className="w-6 h-6 bg-editor-indigo rounded-full" />
-                    </div>
+              {isTextElement && (
+                <div className="mb-6 border-b pb-4">
+                  <div className="flex items-center mb-2">
+                    <Type size={16} className="mr-2" />
+                    <h4 className="font-medium">Text Styling</h4>
                   </div>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium mb-2">Alignment</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button 
-                        onClick={() => updateElementAlign('text-left')} 
-                        className="bg-gray-100 hover:bg-gray-200 py-1 rounded text-sm"
-                      >
-                        Left
-                      </button>
-                      <button 
-                        onClick={() => updateElementAlign('text-center')} 
-                        className="bg-gray-100 hover:bg-gray-200 py-1 rounded text-sm"
-                      >
-                        Center
-                      </button>
-                      <button 
-                        onClick={() => updateElementAlign('text-right')} 
-                        className="bg-gray-100 hover:bg-gray-200 py-1 rounded text-sm"
-                      >
-                        Right
-                      </button>
-                    </div>
-                  </div>
-                </>
+                  <TextStyleEditor 
+                    element={selectedElementData.element}
+                    pageId={selectedElementData.pageId}
+                    sectionId={selectedElementData.sectionId}
+                  />
+                </div>
               )}
               
-              {/* Grid Positioning (only show if section uses grid) */}
+              {(['heading', 'text', 'button'].includes(selectedElementData.element.type)) && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">Text Color</label>
+                  <div className="grid grid-cols-5 gap-2">
+                    <button onClick={() => updateElementColor('text-black')} className="w-6 h-6 bg-black rounded-full" />
+                    <button onClick={() => updateElementColor('text-white')} className="w-6 h-6 bg-white border rounded-full" />
+                    <button onClick={() => updateElementColor('text-editor-blue')} className="w-6 h-6 bg-editor-blue rounded-full" />
+                    <button onClick={() => updateElementColor('text-editor-purple')} className="w-6 h-6 bg-editor-purple rounded-full" />
+                    <button onClick={() => updateElementColor('text-editor-teal')} className="w-6 h-6 bg-editor-teal rounded-full" />
+                    <button onClick={() => updateElementColor('text-gray-700')} className="w-6 h-6 bg-gray-700 rounded-full" />
+                    <button onClick={() => updateElementColor('text-red-500')} className="w-6 h-6 bg-red-500 rounded-full" />
+                    <button onClick={() => updateElementColor('text-yellow-500')} className="w-6 h-6 bg-yellow-500 rounded-full" />
+                    <button onClick={() => updateElementColor('text-green-500')} className="w-6 h-6 bg-green-500 rounded-full" />
+                    <button onClick={() => updateElementColor('text-editor-indigo')} className="w-6 h-6 bg-editor-indigo rounded-full" />
+                  </div>
+                </div>
+              )}
+              
               {currentSectionUsesGrid && (
                 <div className="mb-4 border-t pt-4">
                   <div className="flex items-center mb-2">
