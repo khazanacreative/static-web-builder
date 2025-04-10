@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useEditor } from '@/context/EditorContext';
 import { Plus, Settings, Layers, FileText, LayoutGrid, Type } from 'lucide-react';
@@ -371,7 +372,7 @@ const EditorSidebar: React.FC = () => {
                       onChange={(e) => updateElementGridPosition('column', e.target.value)}
                       className="w-full p-1 text-sm border rounded"
                     >
-                      <option value="">Default</option>
+                      <option value="default">Default</option>
                       <option value="col-span-1">Column 1</option>
                       <option value="col-span-1 md:col-start-1">Start at 1</option>
                       <option value="col-span-1 md:col-start-2">Start at 2</option>
@@ -387,7 +388,7 @@ const EditorSidebar: React.FC = () => {
                       onChange={(e) => updateElementGridPosition('row', e.target.value)}
                       className="w-full p-1 text-sm border rounded"
                     >
-                      <option value="">Default</option>
+                      <option value="default">Default</option>
                       <option value="row-start-1">Row 1</option>
                       <option value="row-start-2">Row 2</option>
                       <option value="row-start-3">Row 3</option>
@@ -402,7 +403,7 @@ const EditorSidebar: React.FC = () => {
                       onChange={(e) => updateElementGridPosition('columnSpan', e.target.value)}
                       className="w-full p-1 text-sm border rounded"
                     >
-                      <option value="">Default</option>
+                      <option value="default">Default</option>
                       <option value="md:col-span-1">Span 1</option>
                       <option value="md:col-span-2">Span 2</option>
                       <option value="md:col-span-3">Span 3</option>
@@ -417,7 +418,7 @@ const EditorSidebar: React.FC = () => {
                       onChange={(e) => updateElementGridPosition('rowSpan', e.target.value)}
                       className="w-full p-1 text-sm border rounded"
                     >
-                      <option value="">Default</option>
+                      <option value="default">Default</option>
                       <option value="row-span-1">Span 1</option>
                       <option value="row-span-2">Span 2</option>
                       <option value="row-span-3">Span 3</option>

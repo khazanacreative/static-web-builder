@@ -384,7 +384,8 @@ export const NavigationManager = () => {
                         <Link size={14} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Choose page</SelectItem>
+                        {/* Fixed: Changed empty value to a non-empty string */}
+                        <SelectItem value="choose-page">Choose page</SelectItem>
                         {pages.map(page => (
                           <SelectItem key={page.id} value={page.slug}>
                             {page.title}
