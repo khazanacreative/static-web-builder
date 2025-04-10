@@ -21,33 +21,38 @@ const Index = () => {
     if (matchingPage) {
       setCurrentPageId(matchingPage.id);
     } else if (currentPath !== '/' && pages.length > 0) {
-      // If no matching page is found and we're not on home page,
-      // try to find a page with the closest matching slug
+      // If no exact match found, try to find the page with a similar path
+      // This helps with dynamic routes and prevents 404 errors for new pages
       const potentialMatch = pages.find(page => 
-        currentPath.startsWith(page.slug) && page.slug !== '/'
+        page.slug !== '/' && 
+        (currentPath.startsWith(page.slug) || page.slug.startsWith(currentPath))
       );
       
       if (potentialMatch) {
         setCurrentPageId(potentialMatch.id);
       } else {
-        // If no matching page found and not on home, default to home page
-        const homePage = pages.find(page => page.slug === '/');
-        if (homePage && currentPageId !== homePage.id) {
-          navigate('/');
+        // Only redirect to home if we can't find any matching page
+        // and we're not currently in edit mode
+        if (!isEditMode) {
+          const homePage = pages.find(page => page.slug === '/');
+          if (homePage) {
+            navigate('/');
+          }
         }
       }
     }
-  }, [location.pathname, pages, setCurrentPageId]);
+  }, [location.pathname, pages, setCurrentPageId, isEditMode]);
 
-  // Update URL when current page changes
+  // Update URL when current page changes, but only if not in edit mode
+  // This prevents navigation away from the current page during editing
   useEffect(() => {
-    if (currentPageId) {
+    if (currentPageId && !isEditMode) {
       const currentPage = pages.find(page => page.id === currentPageId);
       if (currentPage && location.pathname !== currentPage.slug) {
         navigate(currentPage.slug);
       }
     }
-  }, [currentPageId, pages, navigate, location.pathname]);
+  }, [currentPageId, pages, navigate, location.pathname, isEditMode]);
 
   // Auto-save when exiting edit mode and warn before unload
   useEffect(() => {
