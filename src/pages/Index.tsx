@@ -10,7 +10,7 @@ const Index = () => {
   const { isEditMode, saveEditorChanges } = useEditor();
   const { toast } = useToast();
 
-  // Auto-save when exiting edit mode
+  // Auto-save when exiting edit mode and warn before unload
   useEffect(() => {
     let saveTimeout: NodeJS.Timeout | null = null;
     
@@ -22,14 +22,27 @@ const Index = () => {
       }
     };
 
-    // Add event listener for beforeunload
+    // Auto-save functionality when exiting edit mode
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && isEditMode) {
+        saveEditorChanges().then(() => {
+          console.log('Auto-saved changes due to page visibility change');
+        }).catch(error => {
+          console.error('Failed to auto-save changes:', error);
+        });
+      }
+    };
+
+    // Add event listeners
     window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (saveTimeout) clearTimeout(saveTimeout);
     };
-  }, [isEditMode]);
+  }, [isEditMode, saveEditorChanges]);
 
   return (
     <div className="min-h-screen bg-gray-50">

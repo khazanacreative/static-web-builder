@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
 export type ElementType = 'heading' | 'text' | 'image' | 'button' | 'section';
 export type UserRole = 'viewer' | 'editor' | 'admin';
@@ -439,13 +439,38 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const saveEditorChanges = async (): Promise<void> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('Changes saved successfully');
-        resolve();
-      }, 1000);
+    return new Promise((resolve, reject) => {
+      try {
+        localStorage.setItem('websiteBuilder_pages', JSON.stringify(pages));
+        localStorage.setItem('websiteBuilder_navigation', JSON.stringify(navigation));
+        
+        setTimeout(() => {
+          console.log('Changes saved successfully');
+          resolve();
+        }, 1000);
+      } catch (error) {
+        console.error('Error saving changes:', error);
+        reject(error);
+      }
     });
   };
+
+  useEffect(() => {
+    try {
+      const savedPages = localStorage.getItem('websiteBuilder_pages');
+      const savedNavigation = localStorage.getItem('websiteBuilder_navigation');
+      
+      if (savedPages) {
+        setPages(JSON.parse(savedPages));
+      }
+      
+      if (savedNavigation) {
+        setNavigation(JSON.parse(savedNavigation));
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+    }
+  }, []);
 
   const value = {
     pages,

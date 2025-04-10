@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Pencil, Eye, ChevronDown, Globe, Lock, User, UserCog, Menu } from 'lucide-react';
+import { Pencil, Eye, ChevronDown, Globe, Lock, User, UserCog, Menu, LogIn } from 'lucide-react';
 import { useEditor } from '@/context/EditorContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -30,15 +30,18 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { NavigationManager } from './NavigationManager';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Navbar: React.FC = () => {
-  const { isEditMode, toggleEditMode, pages, currentPageId, userRole, setUserRole, publishPage, unpublishPage, navigation } = useEditor();
+  const { isEditMode, toggleEditMode, pages, currentPageId, userRole, setUserRole, publishPage, unpublishPage, navigation, saveEditorChanges } = useEditor();
   const { toast } = useToast();
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isMobile = useIsMobile();
 
   const currentPage = pages.find((page) => page.id === currentPageId);
   
@@ -54,16 +57,30 @@ const Navbar: React.FC = () => {
     toggleEditMode();
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (currentPage) {
-      publishPage(currentPage.id);
-      setPublishDialogOpen(false);
-      toast({
-        title: "Page Published",
-        description: `${currentPage.title} has been published successfully.`,
-        // Changed from 'success' to 'default' as 'success' is not a valid variant
-        variant: "default",
-      });
+      setIsSaving(true);
+      try {
+        // First save all changes
+        await saveEditorChanges();
+        
+        // Then publish the page
+        publishPage(currentPage.id);
+        setPublishDialogOpen(false);
+        toast({
+          title: "Page Published",
+          description: `${currentPage.title} has been published successfully.`,
+          variant: "default",
+        });
+      } catch (error) {
+        toast({
+          title: "Publish Failed",
+          description: "There was an error publishing the page.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -87,6 +104,11 @@ const Navbar: React.FC = () => {
       description: `Your role has been changed to ${role}.`,
       variant: "default",
     });
+    
+    // If changing to viewer mode, exit edit mode
+    if (role === 'viewer' && isEditMode) {
+      toggleEditMode();
+    }
   };
 
   return (
@@ -95,7 +117,8 @@ const Navbar: React.FC = () => {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
             <Link to="/" className="text-xl font-bold text-editor-blue">
-              Website Builder
+              {/* This can be replaced with your logo/website identity */}
+              <span className="site-identity">Website Identity</span>
             </Link>
             
             <div className="hidden md:flex ml-6">
@@ -120,17 +143,29 @@ const Navbar: React.FC = () => {
           </div>
           
           <div className="hidden md:flex items-center space-x-4">
-            {/* Navigation Manager */}
+            {/* Only show Navigation Manager for admin */}
             {userRole === 'admin' && <NavigationManager />}
             
-            {/* Role Selector */}
+            {/* Login/Role Button */}
             <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="flex items-center space-x-1">
-                  {userRole === 'viewer' && <User className="h-4 w-4" />}
-                  {userRole === 'editor' && <Pencil className="h-4 w-4" />}
-                  {userRole === 'admin' && <UserCog className="h-4 w-4" />}
-                  <span className="capitalize">{userRole}</span>
+                  {userRole === 'viewer' ? (
+                    <>
+                      <LogIn className="h-4 w-4" />
+                      <span>Login</span>
+                    </>
+                  ) : userRole === 'editor' ? (
+                    <>
+                      <Pencil className="h-4 w-4" />
+                      <span>Editor</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCog className="h-4 w-4" />
+                      <span>Admin</span>
+                    </>
+                  )}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -157,37 +192,38 @@ const Navbar: React.FC = () => {
               </DialogContent>
             </Dialog>
             
-            {/* Edit Mode Toggle */}
-            <Button
-              variant={isEditMode ? "default" : "outline"}
-              size="sm"
-              onClick={handleToggleEditMode}
-              className={cn(
-                'gap-2',
-                userRole === 'viewer' && 'opacity-50 cursor-not-allowed'
-              )}
-              disabled={userRole === 'viewer'}
-            >
-              {isEditMode ? (
-                <>
-                  <Eye className="h-4 w-4" />
-                  Preview
-                </>
-              ) : (
-                <>
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </>
-              )}
-            </Button>
+            {/* Edit Mode Toggle - Only for editors and admins */}
+            {userRole !== 'viewer' && (
+              <Button
+                variant={isEditMode ? "default" : "outline"}
+                size="sm"
+                onClick={handleToggleEditMode}
+                className="gap-2"
+              >
+                {isEditMode ? (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    Preview
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </>
+                )}
+              </Button>
+            )}
             
             {/* Publish Button (Admin Only) */}
             {userRole === 'admin' && (
               <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700">
+                  <Button variant="default" size="sm" className={cn(
+                    "bg-green-600 hover:bg-green-700",
+                    isSaving && "opacity-70 cursor-not-allowed"
+                  )} disabled={isSaving}>
                     <Globe className="h-4 w-4 mr-1" />
-                    {currentPage?.isPublished ? 'Published' : 'Publish'}
+                    {isSaving ? 'Saving...' : currentPage?.isPublished ? 'Published' : 'Publish'}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -208,8 +244,13 @@ const Navbar: React.FC = () => {
                         Unpublish
                       </Button>
                     ) : (
-                      <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={handlePublish}>
-                        Publish
+                      <Button 
+                        variant="default" 
+                        className="bg-green-600 hover:bg-green-700" 
+                        onClick={handlePublish}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? 'Saving...' : 'Publish'}
                       </Button>
                     )}
                   </DialogFooter>
@@ -217,30 +258,32 @@ const Navbar: React.FC = () => {
               </Dialog>
             )}
 
-            {/* Pages Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center">
-                  Pages <ChevronDown className="ml-1 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Navigation</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {pages.map((page) => (
-                  <DropdownMenuItem key={page.id} asChild>
-                    <Link to={page.slug} className="flex items-center">
-                      {page.title}
-                      {page.isPublished ? (
-                        <Globe className="ml-2 h-3 w-3 text-green-600" />
-                      ) : (
-                        <Lock className="ml-2 h-3 w-3 text-amber-600" />
-                      )}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Pages Dropdown - Only for editors and admins */}
+            {userRole !== 'viewer' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center">
+                    Pages <ChevronDown className="ml-1 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Navigation</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {pages.map((page) => (
+                    <DropdownMenuItem key={page.id} asChild>
+                      <Link to={page.slug} className="flex items-center">
+                        {page.title}
+                        {page.isPublished ? (
+                          <Globe className="ml-2 h-3 w-3 text-green-600" />
+                        ) : (
+                          <Lock className="ml-2 h-3 w-3 text-amber-600" />
+                        )}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
         
@@ -261,21 +304,29 @@ const Navbar: React.FC = () => {
             </div>
             
             <div className="mt-3 pt-3 border-t space-y-2 px-4">
-              {userRole === 'admin' && <NavigationManager />}
-              
+              {/* Role Button */}
               <Button
-                variant={isEditMode ? "default" : "outline"}
+                variant="outline"
                 size="sm"
-                onClick={handleToggleEditMode}
-                className={cn(
-                  'w-full justify-center',
-                  userRole === 'viewer' && 'opacity-50 cursor-not-allowed'
-                )}
-                disabled={userRole === 'viewer'}
+                onClick={() => setRoleDialogOpen(true)}
+                className="w-full justify-center"
               >
-                {isEditMode ? "Preview Mode" : "Edit Mode"}
+                {userRole === 'viewer' ? 'Login' : `${userRole.charAt(0).toUpperCase() + userRole.slice(1)} Mode`}
               </Button>
               
+              {/* Edit Mode - Only for editors and admins */}
+              {userRole !== 'viewer' && (
+                <Button
+                  variant={isEditMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={handleToggleEditMode}
+                  className="w-full justify-center"
+                >
+                  {isEditMode ? "Preview Mode" : "Edit Mode"}
+                </Button>
+              )}
+              
+              {/* Publish - Only for admins */}
               {userRole === 'admin' && (
                 <Button 
                   variant="default"
