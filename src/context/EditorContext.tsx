@@ -2,12 +2,19 @@
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
 export type ElementType = 'heading' | 'text' | 'image' | 'button' | 'section';
+export type UserRole = 'viewer' | 'editor' | 'admin';
 
 export interface PageElement {
   id: string;
   type: ElementType;
   content: string;
   properties?: Record<string, any>;
+  gridPosition?: {
+    column: string;
+    row: string;
+    columnSpan: string;
+    rowSpan: string;
+  };
 }
 
 export interface Section {
@@ -17,7 +24,12 @@ export interface Section {
     backgroundColor?: string;
     paddingY?: string;
     paddingX?: string;
+    isGridLayout?: boolean;
+    gridColumns?: string;
+    gridRows?: string;
+    gridGap?: string;
   };
+  type?: 'content' | 'header' | 'footer';
 }
 
 export interface Page {
@@ -25,6 +37,8 @@ export interface Page {
   title: string;
   slug: string;
   sections: Section[];
+  isPublished: boolean;
+  publishedAt?: string;
 }
 
 interface EditorContextType {
@@ -32,6 +46,7 @@ interface EditorContextType {
   currentPageId: string;
   isEditMode: boolean;
   selectedElementId: string | null;
+  userRole: UserRole;
   addPage: (page: Page) => void;
   setCurrentPageId: (id: string) => void;
   updatePage: (pageId: string, updatedPage: Partial<Page>) => void;
@@ -47,6 +62,11 @@ interface EditorContextType {
   moveSectionUp: (pageId: string, sectionId: string) => void;
   moveSectionDown: (pageId: string, sectionId: string) => void;
   getSelectedElement: () => { pageId: string, sectionId: string, element: PageElement } | null;
+  setUserRole: (role: UserRole) => void;
+  publishPage: (pageId: string) => void;
+  unpublishPage: (pageId: string) => void;
+  replaceHeaderSection: (pageId: string, section: Section) => void;
+  replaceFooterSection: (pageId: string, section: Section) => void;
 }
 
 export const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -56,6 +76,7 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [currentPageId, setCurrentPageId] = useState(defaultHomePage.id);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>('viewer');
 
   const addPage = (page: Page) => {
     setPages((prevPages) => [...prevPages, page]);
@@ -70,6 +91,10 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const toggleEditMode = () => {
+    if (userRole === 'viewer') {
+      return; // Viewers cannot toggle edit mode
+    }
+    
     setIsEditMode((prev) => !prev);
     if (isEditMode) {
       setSelectedElementId(null);
@@ -296,11 +321,88 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     );
   };
 
+  const publishPage = (pageId: string) => {
+    setPages((prevPages) =>
+      prevPages.map((page) =>
+        page.id === pageId
+          ? { ...page, isPublished: true, publishedAt: new Date().toISOString() }
+          : page
+      )
+    );
+  };
+
+  const unpublishPage = (pageId: string) => {
+    setPages((prevPages) =>
+      prevPages.map((page) =>
+        page.id === pageId ? { ...page, isPublished: false } : page
+      )
+    );
+  };
+
+  const replaceHeaderSection = (pageId: string, newHeaderSection: Section) => {
+    setPages((prevPages) =>
+      prevPages.map((page) => {
+        if (page.id === pageId) {
+          // Find existing header section
+          const headerIndex = page.sections.findIndex(section => section.type === 'header');
+          const updatedSections = [...page.sections];
+          
+          // Set type for new header section
+          const sectionWithType = { ...newHeaderSection, type: 'header' };
+          
+          if (headerIndex >= 0) {
+            // Replace existing header
+            updatedSections[headerIndex] = sectionWithType;
+          } else {
+            // Add new header at the beginning
+            updatedSections.unshift(sectionWithType);
+          }
+          
+          return {
+            ...page,
+            sections: updatedSections
+          };
+        }
+        return page;
+      })
+    );
+  };
+
+  const replaceFooterSection = (pageId: string, newFooterSection: Section) => {
+    setPages((prevPages) =>
+      prevPages.map((page) => {
+        if (page.id === pageId) {
+          // Find existing footer section
+          const footerIndex = page.sections.findIndex(section => section.type === 'footer');
+          const updatedSections = [...page.sections];
+          
+          // Set type for new footer section
+          const sectionWithType = { ...newFooterSection, type: 'footer' };
+          
+          if (footerIndex >= 0) {
+            // Replace existing footer
+            updatedSections[footerIndex] = sectionWithType;
+          } else {
+            // Add new footer at the end
+            updatedSections.push(sectionWithType);
+          }
+          
+          return {
+            ...page,
+            sections: updatedSections
+          };
+        }
+        return page;
+      })
+    );
+  };
+
   const value = {
     pages,
     currentPageId,
     isEditMode,
     selectedElementId,
+    userRole,
     addPage,
     setCurrentPageId,
     updatePage,
@@ -315,7 +417,12 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     duplicateSection,
     moveSectionUp,
     moveSectionDown,
-    getSelectedElement
+    getSelectedElement,
+    setUserRole,
+    publishPage,
+    unpublishPage,
+    replaceHeaderSection,
+    replaceFooterSection
   };
 
   return (
@@ -336,9 +443,39 @@ const defaultHomePage: Page = {
   id: 'home-page',
   title: 'Home',
   slug: '/',
+  isPublished: true,
+  publishedAt: new Date().toISOString(),
   sections: [
     {
+      id: 'header-section',
+      type: 'header',
+      properties: {
+        backgroundColor: 'bg-white',
+        paddingY: 'py-4',
+        paddingX: 'px-4'
+      },
+      elements: [
+        {
+          id: 'header-logo',
+          type: 'image',
+          content: '/placeholder.svg',
+          properties: {
+            className: 'h-10 w-auto'
+          }
+        },
+        {
+          id: 'header-title',
+          type: 'heading',
+          content: 'My Website',
+          properties: {
+            className: 'text-xl font-bold'
+          }
+        }
+      ],
+    },
+    {
       id: 'hero-section',
+      type: 'content',
       properties: {
         backgroundColor: 'bg-gradient-to-r from-editor-blue to-editor-purple',
         paddingY: 'py-20',
@@ -373,10 +510,15 @@ const defaultHomePage: Page = {
     },
     {
       id: 'features-section',
+      type: 'content',
       properties: {
         backgroundColor: 'bg-white',
         paddingY: 'py-16',
-        paddingX: 'px-4'
+        paddingX: 'px-4',
+        isGridLayout: true,
+        gridColumns: 'grid-cols-1 md:grid-cols-3',
+        gridRows: 'auto',
+        gridGap: 'gap-8'
       },
       elements: [
         {
@@ -384,7 +526,13 @@ const defaultHomePage: Page = {
           type: 'heading',
           content: 'Fitur Unggulan',
           properties: {
-            className: 'text-3xl md:text-4xl font-bold text-center mb-12'
+            className: 'text-3xl md:text-4xl font-bold text-center mb-12 col-span-full'
+          },
+          gridPosition: {
+            column: 'col-span-full',
+            row: 'row-start-1',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -393,6 +541,12 @@ const defaultHomePage: Page = {
           content: '/placeholder.svg',
           properties: {
             className: 'w-16 h-16 mx-auto mb-4'
+          },
+          gridPosition: {
+            column: 'md:col-start-1',
+            row: 'row-start-2',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -401,6 +555,12 @@ const defaultHomePage: Page = {
           content: 'Editor Visual',
           properties: {
             className: 'text-xl font-semibold text-center mb-2'
+          },
+          gridPosition: {
+            column: 'md:col-start-1',
+            row: 'row-start-3',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -409,6 +569,12 @@ const defaultHomePage: Page = {
           content: 'Edit tampilan website secara visual, langsung melihat hasilnya tanpa perlu reload halaman.',
           properties: {
             className: 'text-gray-600 text-center max-w-md mx-auto mb-12'
+          },
+          gridPosition: {
+            column: 'md:col-start-1',
+            row: 'row-start-4',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -417,6 +583,12 @@ const defaultHomePage: Page = {
           content: '/placeholder.svg',
           properties: {
             className: 'w-16 h-16 mx-auto mb-4'
+          },
+          gridPosition: {
+            column: 'md:col-start-2',
+            row: 'row-start-2',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -425,6 +597,12 @@ const defaultHomePage: Page = {
           content: 'Section Builder',
           properties: {
             className: 'text-xl font-semibold text-center mb-2'
+          },
+          gridPosition: {
+            column: 'md:col-start-2',
+            row: 'row-start-3',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -433,6 +611,12 @@ const defaultHomePage: Page = {
           content: 'Tambahkan dan atur section baru dengan mudah untuk memperkaya konten website Anda.',
           properties: {
             className: 'text-gray-600 text-center max-w-md mx-auto mb-12'
+          },
+          gridPosition: {
+            column: 'md:col-start-2',
+            row: 'row-start-4',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -441,6 +625,12 @@ const defaultHomePage: Page = {
           content: '/placeholder.svg',
           properties: {
             className: 'w-16 h-16 mx-auto mb-4'
+          },
+          gridPosition: {
+            column: 'md:col-start-3',
+            row: 'row-start-2',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -449,6 +639,12 @@ const defaultHomePage: Page = {
           content: 'Multi Page Management',
           properties: {
             className: 'text-xl font-semibold text-center mb-2'
+          },
+          gridPosition: {
+            column: 'md:col-start-3',
+            row: 'row-start-3',
+            columnSpan: '',
+            rowSpan: ''
           }
         },
         {
@@ -457,12 +653,19 @@ const defaultHomePage: Page = {
           content: 'Buat dan kelola banyak halaman untuk website lengkap dengan navigasi yang intuitif.',
           properties: {
             className: 'text-gray-600 text-center max-w-md mx-auto'
+          },
+          gridPosition: {
+            column: 'md:col-start-3',
+            row: 'row-start-4',
+            columnSpan: '',
+            rowSpan: ''
           }
         }
       ],
     },
     {
       id: 'cta-section',
+      type: 'content',
       properties: {
         backgroundColor: 'bg-editor-indigo',
         paddingY: 'py-16',
@@ -491,6 +694,25 @@ const defaultHomePage: Page = {
           content: 'Daftar Gratis',
           properties: {
             className: 'bg-white text-editor-indigo hover:bg-gray-100 px-6 py-3 rounded-lg font-medium text-lg mx-auto block'
+          }
+        }
+      ],
+    },
+    {
+      id: 'footer-section',
+      type: 'footer',
+      properties: {
+        backgroundColor: 'bg-gray-800',
+        paddingY: 'py-8',
+        paddingX: 'px-4'
+      },
+      elements: [
+        {
+          id: 'footer-text',
+          type: 'text',
+          content: '© 2025 Website Builder. All rights reserved.',
+          properties: {
+            className: 'text-gray-400 text-center'
           }
         }
       ],

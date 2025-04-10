@@ -8,104 +8,106 @@ interface EditableElementProps {
   element: PageElement;
   pageId: string;
   sectionId: string;
+  className?: string;
 }
 
-const EditableElement: React.FC<EditableElementProps> = ({
-  element,
-  pageId,
-  sectionId,
-}) => {
-  const { isEditMode, updateElement, selectElement, selectedElementId } = useEditor();
+const EditableElement: React.FC<EditableElementProps> = ({ element, pageId, sectionId, className }) => {
+  const { isEditMode, selectedElementId, selectElement, updateElement } = useEditor();
   const [isEditing, setIsEditing] = useState(false);
   const [editableContent, setEditableContent] = useState(element.content);
 
   const isSelected = selectedElementId === element.id;
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (!isEditMode) return;
+  const handleElementClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    selectElement(element.id);
-  };
-
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    if (!isEditMode) return;
-    e.stopPropagation();
-    setIsEditing(true);
-  };
-
-  const handleBlur = () => {
-    if (isEditing) {
-      updateElement(pageId, sectionId, element.id, { content: editableContent });
-      setIsEditing(false);
+    if (isEditMode) {
+      selectElement(element.id);
     }
   };
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isEditMode && ['heading', 'text', 'button'].includes(element.type)) {
+      setIsEditing(true);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setEditableContent(e.target.value);
+  };
+
+  const handleInputBlur = () => {
+    setIsEditing(false);
+    updateElement(pageId, sectionId, element.id, { content: editableContent });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleBlur();
+      handleInputBlur();
     }
   };
 
   const renderElement = () => {
-    const className = element.properties?.className || '';
-
-    if (isEditing && element.type !== 'image') {
-      return (
-        <input
-          type="text"
-          className={cn(
-            className,
-            'w-full bg-transparent border-0 focus:outline-none focus:ring-2 focus:ring-editor-blue px-2'
-          )}
-          value={editableContent}
-          onChange={(e) => setEditableContent(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          autoFocus
-        />
-      );
-    }
-
     switch (element.type) {
       case 'heading':
-        return <h2 className={className}>{element.content}</h2>;
+        return isEditing ? (
+          <input
+            type="text"
+            value={editableContent}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleKeyDown}
+            className="w-full px-2 py-1 border border-editor-blue rounded"
+            autoFocus
+          />
+        ) : (
+          <h2 className={element.properties?.className}>{element.content}</h2>
+        );
       case 'text':
-        return <p className={className}>{element.content}</p>;
+        return isEditing ? (
+          <textarea
+            value={editableContent}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            className="w-full h-24 px-2 py-1 border border-editor-blue rounded"
+            autoFocus
+          />
+        ) : (
+          <p className={element.properties?.className}>{element.content}</p>
+        );
       case 'button':
-        return (
-          <button className={className} disabled={isEditMode}>
-            {element.content}
-          </button>
+        return isEditing ? (
+          <input
+            type="text"
+            value={editableContent}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleKeyDown}
+            className="w-full px-2 py-1 border border-editor-blue rounded"
+            autoFocus
+          />
+        ) : (
+          <button className={element.properties?.className}>{element.content}</button>
         );
       case 'image':
-        return (
-          <img
-            src={element.content}
-            alt="Editable image"
-            className={className}
-          />
-        );
+        return <img src={element.content} alt="Content" className={element.properties?.className} />;
       default:
-        return <div className={className}>{element.content}</div>;
+        return <div>Unknown element type</div>;
     }
   };
 
   return (
     <div
       className={cn(
-        'relative',
-        isSelected && isEditMode && 'ring-2 ring-editor-blue ring-inset'
+        isSelected && isEditMode ? 'ring-2 ring-editor-blue ring-offset-2' : '',
+        isEditMode ? 'cursor-pointer hover:outline hover:outline-dashed hover:outline-gray-300' : '',
+        className // Add grid positioning classes
       )}
-      onClick={handleClick}
+      onClick={handleElementClick}
       onDoubleClick={handleDoubleClick}
     >
       {renderElement()}
-      {isSelected && isEditMode && (
-        <div className="absolute -top-4 -left-4 bg-editor-blue text-white text-xs px-2 py-1 rounded-md">
-          {element.type}
-        </div>
-      )}
     </div>
   );
 };

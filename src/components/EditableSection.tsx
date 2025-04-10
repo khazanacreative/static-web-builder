@@ -1,10 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Section } from '@/context/EditorContext';
 import { useEditor } from '@/context/EditorContext';
 import EditableElement from './EditableElement';
 import { cn } from '@/lib/utils';
-import { ArrowUp, ArrowDown, Copy, Trash2, Plus } from 'lucide-react';
+import { ArrowUp, ArrowDown, Copy, Trash2, Grid3X3, LayoutGrid } from 'lucide-react';
 
 interface EditableSectionProps {
   section: Section;
@@ -18,8 +18,14 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
     duplicateSection, 
     moveSectionUp, 
     moveSectionDown,
-    addElement
+    addElement,
+    updateSection,
+    userRole
   } = useEditor();
+  
+  const [showGridSettings, setShowGridSettings] = useState(false);
+  
+  const canEdit = userRole === 'admin' || userRole === 'editor';
 
   const handleDuplicate = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -85,27 +91,77 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
     });
   };
 
+  const toggleGridLayout = () => {
+    updateSection(pageId, section.id, {
+      properties: {
+        ...section.properties,
+        isGridLayout: !section.properties?.isGridLayout,
+        gridColumns: section.properties?.gridColumns || 'grid-cols-1 md:grid-cols-3',
+        gridRows: section.properties?.gridRows || 'auto',
+        gridGap: section.properties?.gridGap || 'gap-4'
+      }
+    });
+  };
+
+  const handleGridColumnsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateSection(pageId, section.id, {
+      properties: {
+        ...section.properties,
+        gridColumns: e.target.value
+      }
+    });
+  };
+
+  const handleGridGapChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateSection(pageId, section.id, {
+      properties: {
+        ...section.properties,
+        gridGap: e.target.value
+      }
+    });
+  };
+
+  // Determine if this section uses grid layout
+  const isGridLayout = section.properties?.isGridLayout;
+
   return (
     <div
       className={cn(
         'relative',
         section.properties?.backgroundColor || 'bg-white',
         section.properties?.paddingY || 'py-8',
-        section.properties?.paddingX || 'px-4'
+        section.properties?.paddingX || 'px-4',
+        section.type === 'header' && 'sticky top-0 z-50',
+        section.type === 'footer' && 'mt-auto'
       )}
     >
-      <div className="container mx-auto">
+      <div className={cn(
+        "container mx-auto",
+        isGridLayout && "grid",
+        isGridLayout && section.properties?.gridColumns,
+        isGridLayout && section.properties?.gridRows && `grid-rows-[${section.properties.gridRows}]`,
+        isGridLayout && section.properties?.gridGap
+      )}>
         {section.elements.map((element) => (
           <EditableElement
             key={element.id}
             element={element}
             pageId={pageId}
             sectionId={section.id}
+            className={cn(
+              isGridLayout && element.gridPosition?.column,
+              isGridLayout && element.gridPosition?.row,
+              isGridLayout && element.gridPosition?.columnSpan,
+              isGridLayout && element.gridPosition?.rowSpan,
+            )}
           />
         ))}
 
-        {isEditMode && (
-          <div className="flex justify-center mt-6">
+        {isEditMode && canEdit && (
+          <div className={cn(
+            "flex justify-center mt-6",
+            isGridLayout && "col-span-full"
+          )}>
             <div className="bg-gray-100 p-2 rounded-lg inline-flex gap-2">
               <button
                 onClick={handleAddHeading}
@@ -136,37 +192,100 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
         )}
       </div>
 
-      {isEditMode && (
-        <div className="absolute top-2 right-2 bg-white shadow-lg rounded-md flex">
-          <button
-            onClick={handleMoveUp}
-            className="p-1 hover:bg-gray-100"
-            title="Move Up"
-          >
-            <ArrowUp size={16} />
-          </button>
-          <button
-            onClick={handleMoveDown}
-            className="p-1 hover:bg-gray-100"
-            title="Move Down"
-          >
-            <ArrowDown size={16} />
-          </button>
-          <button
-            onClick={handleDuplicate}
-            className="p-1 hover:bg-gray-100"
-            title="Duplicate Section"
-          >
-            <Copy size={16} />
-          </button>
-          <button
-            onClick={handleDelete}
-            className="p-1 hover:bg-gray-100 text-red-500"
-            title="Delete Section"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
+      {isEditMode && canEdit && (
+        <>
+          <div className="absolute top-2 right-2 bg-white shadow-lg rounded-md flex">
+            <button
+              onClick={handleMoveUp}
+              className="p-1 hover:bg-gray-100"
+              title="Move Up"
+            >
+              <ArrowUp size={16} />
+            </button>
+            <button
+              onClick={handleMoveDown}
+              className="p-1 hover:bg-gray-100"
+              title="Move Down"
+            >
+              <ArrowDown size={16} />
+            </button>
+            <button
+              onClick={handleDuplicate}
+              className="p-1 hover:bg-gray-100"
+              title="Duplicate Section"
+            >
+              <Copy size={16} />
+            </button>
+            <button
+              onClick={() => setShowGridSettings(!showGridSettings)}
+              className={cn(
+                "p-1 hover:bg-gray-100",
+                isGridLayout ? "text-editor-blue" : ""
+              )}
+              title="Grid Settings"
+            >
+              <LayoutGrid size={16} />
+            </button>
+            <button
+              onClick={handleDelete}
+              className="p-1 hover:bg-gray-100 text-red-500"
+              title="Delete Section"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+
+          {showGridSettings && (
+            <div className="absolute top-12 right-2 bg-white shadow-xl rounded-md p-4 z-50 w-64">
+              <h4 className="font-medium mb-3">Grid Settings</h4>
+              
+              <div className="flex items-center mb-3">
+                <input
+                  type="checkbox"
+                  id="gridLayout"
+                  checked={isGridLayout}
+                  onChange={toggleGridLayout}
+                  className="mr-2"
+                />
+                <label htmlFor="gridLayout">Enable Grid Layout</label>
+              </div>
+              
+              {isGridLayout && (
+                <>
+                  <div className="mb-3">
+                    <label className="block text-sm mb-1">Columns</label>
+                    <select 
+                      value={section.properties?.gridColumns || 'grid-cols-1 md:grid-cols-3'} 
+                      onChange={handleGridColumnsChange}
+                      className="w-full p-1 border rounded text-sm"
+                    >
+                      <option value="grid-cols-1 md:grid-cols-2">2 Columns</option>
+                      <option value="grid-cols-1 md:grid-cols-3">3 Columns</option>
+                      <option value="grid-cols-1 md:grid-cols-4">4 Columns</option>
+                      <option value="grid-cols-1 md:grid-cols-6">6 Columns</option>
+                      <option value="grid-cols-1 md:grid-cols-12">12 Columns</option>
+                    </select>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm mb-1">Gap</label>
+                    <select 
+                      value={section.properties?.gridGap || 'gap-4'} 
+                      onChange={handleGridGapChange}
+                      className="w-full p-1 border rounded text-sm"
+                    >
+                      <option value="gap-0">None</option>
+                      <option value="gap-2">Small</option>
+                      <option value="gap-4">Medium</option>
+                      <option value="gap-6">Large</option>
+                      <option value="gap-8">Extra Large</option>
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

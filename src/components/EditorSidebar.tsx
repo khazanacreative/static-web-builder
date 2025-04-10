@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useEditor } from '@/context/EditorContext';
-import { Plus, Settings, Layers, FileText } from 'lucide-react';
+import { Plus, Settings, Layers, FileText, Grid3X3, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const EditorSidebar: React.FC = () => {
@@ -9,17 +9,22 @@ const EditorSidebar: React.FC = () => {
     isEditMode, 
     pages, 
     currentPageId, 
+    userRole,
     addPage, 
     setCurrentPageId,
     addSection,
     getSelectedElement,
-    updateElement
+    updateElement,
+    replaceHeaderSection,
+    replaceFooterSection
   } = useEditor();
   
   const [activeTab, setActiveTab] = useState<'pages' | 'elements'>('pages');
   const selectedElementData = getSelectedElement();
+  const canEdit = userRole === 'admin' || userRole === 'editor';
+  const isAdmin = userRole === 'admin';
 
-  if (!isEditMode) return null;
+  if (!isEditMode || !canEdit) return null;
 
   const handleAddPage = () => {
     const newPageId = `page-${Date.now()}`;
@@ -30,9 +35,11 @@ const EditorSidebar: React.FC = () => {
       id: newPageId,
       title: newPageTitle,
       slug: newPageSlug,
+      isPublished: false,
       sections: [
         {
           id: `section-${Date.now()}`,
+          type: 'content',
           properties: {
             backgroundColor: 'bg-white',
             paddingY: 'py-12',
@@ -67,6 +74,7 @@ const EditorSidebar: React.FC = () => {
     
     addSection(currentPageId, {
       id: `section-${Date.now()}`,
+      type: 'content',
       properties: {
         backgroundColor: 'bg-white',
         paddingY: 'py-12',
@@ -87,6 +95,60 @@ const EditorSidebar: React.FC = () => {
           content: 'This is a new section. Add elements and customize as needed.',
           properties: {
             className: 'text-center max-w-2xl mx-auto'
+          }
+        }
+      ]
+    });
+  };
+
+  const handleAddHeaderSection = () => {
+    if (!isAdmin) return;
+    
+    replaceHeaderSection(currentPageId, {
+      id: `header-section-${Date.now()}`,
+      properties: {
+        backgroundColor: 'bg-white',
+        paddingY: 'py-4',
+        paddingX: 'px-4'
+      },
+      elements: [
+        {
+          id: `header-logo-${Date.now()}`,
+          type: 'image',
+          content: '/placeholder.svg',
+          properties: {
+            className: 'h-10 w-auto'
+          }
+        },
+        {
+          id: `header-title-${Date.now()}`,
+          type: 'heading',
+          content: 'My Website',
+          properties: {
+            className: 'text-xl font-bold'
+          }
+        }
+      ]
+    });
+  };
+
+  const handleAddFooterSection = () => {
+    if (!isAdmin) return;
+    
+    replaceFooterSection(currentPageId, {
+      id: `footer-section-${Date.now()}`,
+      properties: {
+        backgroundColor: 'bg-gray-800',
+        paddingY: 'py-8',
+        paddingX: 'px-4'
+      },
+      elements: [
+        {
+          id: `footer-text-${Date.now()}`,
+          type: 'text',
+          content: '© 2025 Website Builder. All rights reserved.',
+          properties: {
+            className: 'text-gray-400 text-center'
           }
         }
       ]
@@ -133,6 +195,33 @@ const EditorSidebar: React.FC = () => {
     });
   };
 
+  const updateElementGridPosition = (property: string, value: string) => {
+    if (!selectedElementData) return;
+    
+    const { pageId, sectionId, element } = selectedElementData;
+    
+    updateElement(pageId, sectionId, element.id, {
+      gridPosition: {
+        ...element.gridPosition || {
+          column: '',
+          row: '',
+          columnSpan: '',
+          rowSpan: ''
+        },
+        [property]: value
+      }
+    });
+  };
+
+  // Get the current section to check if it uses grid layout
+  const currentPage = pages.find(page => page.id === currentPageId);
+  let currentSectionUsesGrid = false;
+  
+  if (selectedElementData && currentPage) {
+    const section = currentPage.sections.find(s => s.id === selectedElementData.sectionId);
+    currentSectionUsesGrid = section?.properties?.isGridLayout || false;
+  }
+
   return (
     <div className="bg-white border-l shadow-lg fixed right-0 top-0 h-full w-72 z-10">
       <div className="p-4 border-b">
@@ -170,6 +259,8 @@ const EditorSidebar: React.FC = () => {
               <button 
                 onClick={handleAddPage}
                 className="text-xs bg-editor-blue text-white px-2 py-1 rounded flex items-center"
+                disabled={!isAdmin}
+                title={!isAdmin ? "Only admins can add pages" : "Add a new page"}
               >
                 <Plus size={12} className="mr-1" />
                 Add Page
@@ -181,11 +272,15 @@ const EditorSidebar: React.FC = () => {
                   key={page.id} 
                   className={cn(
                     "p-2 rounded mb-1 text-sm cursor-pointer",
-                    currentPageId === page.id ? "bg-editor-blue text-white" : "bg-white hover:bg-gray-100"
+                    currentPageId === page.id ? "bg-editor-blue text-white" : "bg-white hover:bg-gray-100",
+                    !page.isPublished && "border-l-4 border-amber-300"
                   )}
                   onClick={() => setCurrentPageId(page.id)}
                 >
                   {page.title}
+                  {!page.isPublished && (
+                    <span className="ml-2 text-xs opacity-70">(Draft)</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -202,6 +297,24 @@ const EditorSidebar: React.FC = () => {
                 Add Section
               </button>
             </div>
+            
+            {isAdmin && (
+              <div className="mt-2 mb-4 flex space-x-2">
+                <button 
+                  onClick={handleAddHeaderSection}
+                  className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded flex-1"
+                >
+                  Replace Header
+                </button>
+                <button 
+                  onClick={handleAddFooterSection}
+                  className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded flex-1"
+                >
+                  Replace Footer
+                </button>
+              </div>
+            )}
+            
             <div className="text-sm text-gray-600 italic">
               Use the section controls to manage layout
             </div>
@@ -257,6 +370,76 @@ const EditorSidebar: React.FC = () => {
                     </div>
                   </div>
                 </>
+              )}
+              
+              {/* Grid Positioning (only show if section uses grid) */}
+              {currentSectionUsesGrid && (
+                <div className="mb-4 border-t pt-4">
+                  <div className="flex items-center mb-2">
+                    <LayoutGrid size={16} className="mr-2" />
+                    <label className="block text-sm font-medium">Grid Position</label>
+                  </div>
+                  
+                  <div className="mb-2">
+                    <label className="block text-xs text-gray-500 mb-1">Column</label>
+                    <select 
+                      value={selectedElementData.element.gridPosition?.column || ''}
+                      onChange={(e) => updateElementGridPosition('column', e.target.value)}
+                      className="w-full p-1 text-sm border rounded"
+                    >
+                      <option value="">Default</option>
+                      <option value="col-span-1">Column 1</option>
+                      <option value="col-span-1 md:col-start-1">Start at 1</option>
+                      <option value="col-span-1 md:col-start-2">Start at 2</option>
+                      <option value="col-span-1 md:col-start-3">Start at 3</option>
+                      <option value="col-span-full">Full Width</option>
+                    </select>
+                  </div>
+                  
+                  <div className="mb-2">
+                    <label className="block text-xs text-gray-500 mb-1">Row</label>
+                    <select 
+                      value={selectedElementData.element.gridPosition?.row || ''}
+                      onChange={(e) => updateElementGridPosition('row', e.target.value)}
+                      className="w-full p-1 text-sm border rounded"
+                    >
+                      <option value="">Default</option>
+                      <option value="row-start-1">Row 1</option>
+                      <option value="row-start-2">Row 2</option>
+                      <option value="row-start-3">Row 3</option>
+                      <option value="row-start-4">Row 4</option>
+                    </select>
+                  </div>
+                  
+                  <div className="mb-2">
+                    <label className="block text-xs text-gray-500 mb-1">Column Span</label>
+                    <select 
+                      value={selectedElementData.element.gridPosition?.columnSpan || ''}
+                      onChange={(e) => updateElementGridPosition('columnSpan', e.target.value)}
+                      className="w-full p-1 text-sm border rounded"
+                    >
+                      <option value="">Default</option>
+                      <option value="md:col-span-1">Span 1</option>
+                      <option value="md:col-span-2">Span 2</option>
+                      <option value="md:col-span-3">Span 3</option>
+                      <option value="col-span-full">Full Width</option>
+                    </select>
+                  </div>
+                  
+                  <div className="mb-2">
+                    <label className="block text-xs text-gray-500 mb-1">Row Span</label>
+                    <select 
+                      value={selectedElementData.element.gridPosition?.rowSpan || ''}
+                      onChange={(e) => updateElementGridPosition('rowSpan', e.target.value)}
+                      className="w-full p-1 text-sm border rounded"
+                    >
+                      <option value="">Default</option>
+                      <option value="row-span-1">Span 1</option>
+                      <option value="row-span-2">Span 2</option>
+                      <option value="row-span-3">Span 3</option>
+                    </select>
+                  </div>
+                </div>
               )}
               
               <div className="text-sm text-gray-600">
