@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { Section } from '@/context/EditorContext';
 import { useEditor } from '@/context/EditorContext';
 import EditableElement from './EditableElement';
 import { cn } from '@/lib/utils';
-import { ArrowUp, ArrowDown, Copy, Trash2, LayoutGrid, ArrowsVertical } from 'lucide-react';
+import { ArrowUp, ArrowDown, Copy, Trash2, LayoutGrid, MoveVertical } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import {
   Select,
@@ -26,7 +25,6 @@ interface GridOption {
   rows: string;
 }
 
-// Grid layout options
 const GRID_OPTIONS: GridOption[] = [
   { value: '1x1', label: '1×1 Grid', columns: 'grid-cols-1', rows: 'grid-rows-1' },
   { value: '1x2', label: '1×2 Grid', columns: 'grid-cols-1', rows: 'grid-rows-2' },
@@ -43,7 +41,6 @@ const GRID_OPTIONS: GridOption[] = [
   { value: '4x2', label: '4×2 Grid', columns: 'grid-cols-4', rows: 'grid-rows-2' },
 ];
 
-// Section height options
 const HEIGHT_OPTIONS = [
   { value: 'auto', label: 'Auto' },
   { value: 'h-screen', label: 'Full Screen' },
@@ -197,12 +194,10 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
     });
   };
 
-  // Extract current gap value for slider
   const getCurrentGapValue = () => {
     const gapClass = section.properties?.gridGap || 'gap-4';
     const gapValue = parseInt(gapClass.replace('gap-', '')) || 4;
     
-    // Map gap class to slider value
     switch (gapValue) {
       case 0: return 0;
       case 1: return 2;
@@ -217,7 +212,6 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
     }
   };
 
-  // Determine if this section uses grid layout
   const isGridLayout = section.properties?.isGridLayout;
   const currentHeight = section.properties?.height || 'auto';
   const currentGridType = section.properties?.gridType || '1x1';
@@ -323,7 +317,7 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
               )}
               title="Section Height"
             >
-              <ArrowsVertical size={16} />
+              <MoveVertical size={16} />
             </button>
             <button
               onClick={() => setShowGridSettings(!showGridSettings)}
