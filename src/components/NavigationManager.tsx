@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useEditor } from '@/context/EditorContext';
 import { Trash2, PlusCircle, GripVertical, Image, Link, Type, Layout } from 'lucide-react';
@@ -329,7 +330,7 @@ export const NavigationManager = () => {
     
     toast({
       title: "Page Created",
-      description: `"${newPageTitle}" page has been created and added to navigation.",
+      description: `"${newPageTitle}" page has been created and added to navigation.`,
       variant: "default",
     });
   };
