@@ -5,17 +5,18 @@ import PageRenderer from '@/components/PageRenderer';
 import EditorSidebar from '@/components/EditorSidebar';
 import { useEditor } from '@/context/EditorContext';
 import { useToast } from '@/hooks/use-toast';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Index = () => {
-  const { isEditMode, saveEditorChanges, pages, setCurrentPageId } = useEditor();
+  const { isEditMode, saveEditorChanges, pages, setCurrentPageId, currentPageId } = useEditor();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Set current page based on URL path (slug)
   useEffect(() => {
     const currentPath = location.pathname;
-    const matchingPage = pages.find(page => page.slug === currentPath);
+    let matchingPage = pages.find(page => page.slug === currentPath);
     
     if (matchingPage) {
       setCurrentPageId(matchingPage.id);
@@ -28,9 +29,25 @@ const Index = () => {
       
       if (potentialMatch) {
         setCurrentPageId(potentialMatch.id);
+      } else {
+        // If no matching page found and not on home, default to home page
+        const homePage = pages.find(page => page.slug === '/');
+        if (homePage && currentPageId !== homePage.id) {
+          navigate('/');
+        }
       }
     }
   }, [location.pathname, pages, setCurrentPageId]);
+
+  // Update URL when current page changes
+  useEffect(() => {
+    if (currentPageId) {
+      const currentPage = pages.find(page => page.id === currentPageId);
+      if (currentPage && location.pathname !== currentPage.slug) {
+        navigate(currentPage.slug);
+      }
+    }
+  }, [currentPageId, pages, navigate, location.pathname]);
 
   // Auto-save when exiting edit mode and warn before unload
   useEffect(() => {

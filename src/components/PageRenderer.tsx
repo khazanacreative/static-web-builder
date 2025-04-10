@@ -17,11 +17,10 @@ const PageRenderer: React.FC = () => {
     return <div className="p-8 text-center text-red-500">Page not found</div>;
   }
 
-  // Separate sections by type
-  const headerSection = currentPage.sections.find(section => section.type === 'header');
+  // Separate sections by type, but don't render header section
   const footerSection = currentPage.sections.find(section => section.type === 'footer');
   const contentSections = currentPage.sections.filter(
-    section => section.type === 'content' || !section.type
+    section => (section.type === 'content' || !section.type)
   );
   
   const handlePageTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,16 +92,7 @@ const PageRenderer: React.FC = () => {
         </div>
       )}
       
-      {/* Render Header */}
-      {headerSection && (
-        <EditableSection 
-          key={headerSection.id}
-          section={headerSection}
-          pageId={currentPage.id}
-        />
-      )}
-      
-      {/* Render Content */}
+      {/* Content Sections */}
       <div className="flex-grow">
         {contentSections.map((section) => (
           <EditableSection 
