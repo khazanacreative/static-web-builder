@@ -154,7 +154,8 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
           isGridLayout: true,
           gridType: gridType,
           gridColumns: selectedGrid.columns,
-          gridRows: selectedGrid.rows
+          gridRows: selectedGrid.rows,
+          isDraggableGrid: true
         }
       });
     }
@@ -167,14 +168,24 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
         isGridLayout: !section.properties?.isGridLayout,
         gridColumns: section.properties?.gridColumns || 'grid-cols-1 md:grid-cols-3',
         gridRows: section.properties?.gridRows || 'auto',
-        gridGap: section.properties?.gridGap || 'gap-4'
+        gridGap: section.properties?.gridGap || 'gap-4',
+        isDraggableGrid: section.properties?.isGridLayout ? section.properties?.isDraggableGrid : true
+      }
+    });
+  };
+
+  const toggleDraggableGrid = () => {
+    updateSection(pageId, section.id, {
+      properties: {
+        ...section.properties,
+        isDraggableGrid: !section.properties?.isDraggableGrid
       }
     });
   };
 
   const handleGridGapChange = (value: number[]) => {
     const gapSize = value[0];
-    let gapClass = 'gap-4'; // Default
+    let gapClass = 'gap-4';
     
     if (gapSize <= 0) gapClass = 'gap-0';
     else if (gapSize <= 2) gapClass = 'gap-1';
@@ -213,8 +224,51 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
   };
 
   const isGridLayout = section.properties?.isGridLayout;
+  const isDraggableGrid = section.properties?.isDraggableGrid;
   const currentHeight = section.properties?.height || 'auto';
   const currentGridType = section.properties?.gridType || '1x1';
+
+  const handleElementDragStart = (elementId: string) => (e: React.DragEvent) => {
+    e.dataTransfer.setData('elementId', elementId);
+  };
+
+  const handleGridDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!isGridLayout || !isDraggableGrid) return;
+    
+    const elementId = e.dataTransfer.getData('elementId');
+    if (!elementId) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const gridColumns = parseInt(section.properties?.gridColumns?.replace(/\D/g, '') || '1');
+    const gridRows = parseInt(section.properties?.gridRows?.replace(/\D/g, '') || '1');
+    
+    const colWidth = rect.width / gridColumns;
+    const rowHeight = rect.height / gridRows;
+    
+    const col = Math.min(Math.floor(x / colWidth) + 1, gridColumns);
+    const row = Math.min(Math.floor(y / rowHeight) + 1, gridRows);
+    
+    const element = section.elements.find(el => el.id === elementId);
+    if (element) {
+      updateElement(pageId, section.id, elementId, {
+        gridPosition: {
+          ...element.gridPosition,
+          column: `col-span-1 md:col-start-${col}`,
+          row: `row-start-${row}`
+        }
+      });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (isGridLayout && isDraggableGrid) {
+      e.preventDefault();
+    }
+  };
 
   return (
     <div
@@ -228,13 +282,18 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
         section.type === 'footer' && 'mt-auto'
       )}
     >
-      <div className={cn(
-        "container mx-auto",
-        isGridLayout && "grid",
-        isGridLayout && section.properties?.gridColumns,
-        isGridLayout && section.properties?.gridRows && `grid-rows-[${section.properties.gridRows}]`,
-        isGridLayout && section.properties?.gridGap
-      )}>
+      <div 
+        className={cn(
+          "container mx-auto",
+          isGridLayout && "grid",
+          isGridLayout && section.properties?.gridColumns,
+          isGridLayout && section.properties?.gridRows && `grid-rows-[${section.properties.gridRows}]`,
+          isGridLayout && section.properties?.gridGap,
+          isGridLayout && isDraggableGrid && "relative"
+        )}
+        onDrop={handleGridDrop}
+        onDragOver={handleDragOver}
+      >
         {section.elements.map((element) => (
           <EditableElement
             key={element.id}
@@ -246,7 +305,10 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
               isGridLayout && element.gridPosition?.row,
               isGridLayout && element.gridPosition?.columnSpan,
               isGridLayout && element.gridPosition?.rowSpan,
+              isGridLayout && isDraggableGrid && "cursor-move"
             )}
+            draggable={isGridLayout && isDraggableGrid}
+            onDragStart={handleElementDragStart(element.id)}
           />
         ))}
 
@@ -377,6 +439,17 @@ const EditableSection: React.FC<EditableSectionProps> = ({ section, pageId }) =>
               
               {isGridLayout && (
                 <>
+                  <div className="flex items-center mb-3">
+                    <input
+                      type="checkbox"
+                      id="draggableGrid"
+                      checked={!!isDraggableGrid}
+                      onChange={toggleDraggableGrid}
+                      className="mr-2"
+                    />
+                    <label htmlFor="draggableGrid">Draggable Elements</label>
+                  </div>
+                  
                   <div className="mb-3">
                     <label className="block text-sm mb-1">Grid Type</label>
                     <Select
