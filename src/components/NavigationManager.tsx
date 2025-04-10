@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useEditor } from '@/context/EditorContext';
-import { Trash2, PlusCircle, GripVertical, Image, Link } from 'lucide-react';
+import { Trash2, PlusCircle, GripVertical, Image, Link, Type, Layout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -25,6 +24,7 @@ interface MenuItem {
 interface WebsiteIdentity {
   siteTitle: string;
   logoUrl: string;
+  displayMode: 'text' | 'logo' | 'both';
 }
 
 export const NavigationManager = () => {
@@ -43,7 +43,8 @@ export const NavigationManager = () => {
   const [activeTab, setActiveTab] = useState('menu');
   const [websiteIdentity, setWebsiteIdentity] = useState<WebsiteIdentity>({
     siteTitle: 'My Website',
-    logoUrl: '/placeholder.svg'
+    logoUrl: '/placeholder.svg',
+    displayMode: 'text'
   });
   const [newPageTitle, setNewPageTitle] = useState('');
   const [newPageSlug, setNewPageSlug] = useState('');
@@ -52,10 +53,8 @@ export const NavigationManager = () => {
   const isAdmin = userRole === 'admin';
   
   useEffect(() => {
-    // Reset menu items when navigation changes externally
     setMenuItems(navigation);
     
-    // Find header section in the first page to extract current website identity
     if (pages.length > 0) {
       const firstPage = pages[0];
       const headerSection = firstPage.sections.find(section => section.type === 'header');
@@ -64,12 +63,18 @@ export const NavigationManager = () => {
         const titleElement = headerSection.elements.find(el => el.type === 'heading');
         const logoElement = headerSection.elements.find(el => el.type === 'image');
         
-        if (titleElement || logoElement) {
-          setWebsiteIdentity({
-            siteTitle: titleElement ? titleElement.content : 'My Website',
-            logoUrl: logoElement ? logoElement.content : '/placeholder.svg'
-          });
-        }
+        const hasLogo = logoElement && logoElement.content && logoElement.content !== '/placeholder.svg';
+        const hasTitle = titleElement && titleElement.content;
+        
+        let displayMode: 'text' | 'logo' | 'both' = 'text';
+        if (hasLogo && !hasTitle) displayMode = 'logo';
+        else if (hasLogo && hasTitle) displayMode = 'both';
+        
+        setWebsiteIdentity({
+          siteTitle: titleElement ? titleElement.content : 'My Website',
+          logoUrl: logoElement ? logoElement.content : '/placeholder.svg',
+          displayMode
+        });
       }
     }
   }, [pages, navigation]);
@@ -96,6 +101,8 @@ export const NavigationManager = () => {
   };
 
   const handleLinkToExistingPage = (menuItemId: string, pageSlug: string) => {
+    if (pageSlug === 'choose-page') return;
+    
     const page = pages.find(p => p.slug === pageSlug);
     if (page) {
       handleUpdateMenuItem(menuItemId, 'url', pageSlug);
@@ -105,34 +112,84 @@ export const NavigationManager = () => {
   
   const handleSaveMenu = () => {
     updateNavigation(menuItems);
-    // Update website identity in header sections of all pages
+    
     pages.forEach(page => {
       const headerSection = page.sections.find(section => section.type === 'header');
       if (headerSection) {
-        const titleElement = headerSection.elements.find(el => el.type === 'heading');
-        const logoElement = headerSection.elements.find(el => el.type === 'image');
+        const updatedElements = [...headerSection.elements];
+        const titleElement = updatedElements.find(el => el.type === 'heading');
+        const logoElement = updatedElements.find(el => el.type === 'image');
         
-        if (titleElement) {
-          updatePage(page.id, {
-            sections: page.sections.map(section => 
-              section.id === headerSection.id ? {
-                ...section,
-                elements: section.elements.map(el => 
-                  el.id === titleElement.id ? {...el, content: websiteIdentity.siteTitle} : el
-                )
-              } : section
-            )
-          });
+        if (websiteIdentity.displayMode === 'logo') {
+          if (titleElement) {
+            const titleIndex = updatedElements.findIndex(el => el.type === 'heading');
+            if (titleIndex !== -1) {
+              updatedElements.splice(titleIndex, 1);
+            }
+          }
+        } else {
+          if (titleElement) {
+            updatePage(page.id, {
+              sections: page.sections.map(section => 
+                section.id === headerSection.id ? {
+                  ...section,
+                  elements: section.elements.map(el => 
+                    el.id === titleElement.id ? {...el, content: websiteIdentity.siteTitle} : el
+                  )
+                } : section
+              )
+            });
+          } else {
+            const newTitleElement = {
+              id: `header-title-${Date.now()}`,
+              type: 'heading' as const,
+              content: websiteIdentity.siteTitle,
+              properties: {
+                className: 'text-xl font-bold'
+              }
+            };
+            updatedElements.push(newTitleElement);
+          }
         }
         
-        if (logoElement) {
+        if (websiteIdentity.displayMode === 'text') {
+          if (logoElement) {
+            const logoIndex = updatedElements.findIndex(el => el.type === 'image');
+            if (logoIndex !== -1) {
+              updatedElements.splice(logoIndex, 1);
+            }
+          }
+        } else {
+          if (logoElement) {
+            updatePage(page.id, {
+              sections: page.sections.map(section => 
+                section.id === headerSection.id ? {
+                  ...section,
+                  elements: section.elements.map(el => 
+                    el.id === logoElement.id ? {...el, content: websiteIdentity.logoUrl} : el
+                  )
+                } : section
+              )
+            });
+          } else {
+            const newLogoElement = {
+              id: `header-logo-${Date.now()}`,
+              type: 'image' as const,
+              content: websiteIdentity.logoUrl,
+              properties: {
+                className: 'h-10 w-auto'
+              }
+            };
+            updatedElements.push(newLogoElement);
+          }
+        }
+        
+        if (websiteIdentity.displayMode === 'text' || websiteIdentity.displayMode === 'logo') {
           updatePage(page.id, {
             sections: page.sections.map(section => 
               section.id === headerSection.id ? {
                 ...section,
-                elements: section.elements.map(el => 
-                  el.id === logoElement.id ? {...el, content: websiteIdentity.logoUrl} : el
-                )
+                elements: updatedElements
               } : section
             )
           });
@@ -158,17 +215,25 @@ export const NavigationManager = () => {
       return;
     }
     
-    // Create slug from title if not provided
     let slug = newPageSlug.trim();
     if (!slug) {
       slug = `/${newPageTitle.toLowerCase().replace(/\s+/g, '-')}`;
     } else if (!slug.startsWith('/')) {
-      slug = `/${slug}`; // Make sure slug starts with /
+      slug = `/${slug}`;
+    }
+    
+    const slugExists = pages.some(page => page.slug === slug);
+    if (slugExists) {
+      toast({
+        title: "Error",
+        description: `The URL "${slug}" is already in use. Please choose a different URL.`,
+        variant: "destructive",
+      });
+      return;
     }
     
     const newPageId = `page-${Date.now()}`;
     
-    // Create the page
     addPage({
       id: newPageId,
       title: newPageTitle,
@@ -251,7 +316,6 @@ export const NavigationManager = () => {
       ]
     });
     
-    // Add to navigation
     const newNavItem = {
       id: `menu-item-${Date.now()}`,
       title: newPageTitle,
@@ -281,12 +345,9 @@ export const NavigationManager = () => {
     const newItems = [...menuItems];
     const draggedItem = newItems[draggedIndex];
     
-    // Remove the item being dragged
     newItems.splice(draggedIndex, 1);
-    // Insert it at the new position
     newItems.splice(index, 0, draggedItem);
     
-    // Update order property for each item
     const reorderedItems = newItems.map((item, idx) => ({
       ...item,
       order: idx
@@ -313,7 +374,6 @@ export const NavigationManager = () => {
 
   const handleNewPageSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-    // Ensure slug starts with / and contains only valid characters
     if (value && !value.startsWith('/')) {
       value = `/${value}`;
     }
@@ -384,7 +444,6 @@ export const NavigationManager = () => {
                         <Link size={14} />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* Fixed: Changed empty value to a non-empty string */}
                         <SelectItem value="choose-page">Choose page</SelectItem>
                         {pages.map(page => (
                           <SelectItem key={page.id} value={page.slug}>
@@ -454,32 +513,68 @@ export const NavigationManager = () => {
             <TabsContent value="identity">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="font-medium">Website Title</label>
-                  <Input
-                    value={websiteIdentity.siteTitle}
-                    onChange={(e) => setWebsiteIdentity({...websiteIdentity, siteTitle: e.target.value})}
-                  />
+                  <label className="font-medium">Display Mode</label>
+                  <Select 
+                    value={websiteIdentity.displayMode} 
+                    onValueChange={handleDisplayModeChange}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select display mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">
+                        <div className="flex items-center">
+                          <Type className="h-4 w-4 mr-2" />
+                          Text Only
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="logo">
+                        <div className="flex items-center">
+                          <Image className="h-4 w-4 mr-2" />
+                          Logo Only
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="both">
+                        <div className="flex items-center">
+                          <Layout className="h-4 w-4 mr-2" />
+                          Logo & Text
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 
-                <div className="space-y-2">
-                  <label className="font-medium">Logo</label>
-                  <div className="flex items-center space-x-4">
-                    <div className="border p-2 rounded w-16 h-16 flex items-center justify-center">
-                      <img 
-                        src={websiteIdentity.logoUrl} 
-                        alt="Logo" 
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => setImgUploadDialogOpen(true)}
-                    >
-                      <Image size={16} className="mr-2" />
-                      Change Logo
-                    </Button>
+                {(websiteIdentity.displayMode === 'text' || websiteIdentity.displayMode === 'both') && (
+                  <div className="space-y-2">
+                    <label className="font-medium">Website Title</label>
+                    <Input
+                      value={websiteIdentity.siteTitle}
+                      onChange={(e) => setWebsiteIdentity({...websiteIdentity, siteTitle: e.target.value})}
+                    />
                   </div>
-                </div>
+                )}
+                
+                {(websiteIdentity.displayMode === 'logo' || websiteIdentity.displayMode === 'both') && (
+                  <div className="space-y-2">
+                    <label className="font-medium">Logo</label>
+                    <div className="flex items-center space-x-4">
+                      <div className="border p-2 rounded w-16 h-16 flex items-center justify-center">
+                        <img 
+                          src={websiteIdentity.logoUrl} 
+                          alt="Logo" 
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setImgUploadDialogOpen(true)}
+                      >
+                        <Image size={16} className="mr-2" />
+                        Change Logo
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

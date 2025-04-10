@@ -5,10 +5,32 @@ import PageRenderer from '@/components/PageRenderer';
 import EditorSidebar from '@/components/EditorSidebar';
 import { useEditor } from '@/context/EditorContext';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
 
 const Index = () => {
-  const { isEditMode, saveEditorChanges } = useEditor();
+  const { isEditMode, saveEditorChanges, pages, setCurrentPageId } = useEditor();
   const { toast } = useToast();
+  const location = useLocation();
+  
+  // Set current page based on URL path (slug)
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const matchingPage = pages.find(page => page.slug === currentPath);
+    
+    if (matchingPage) {
+      setCurrentPageId(matchingPage.id);
+    } else if (currentPath !== '/' && pages.length > 0) {
+      // If no matching page is found and we're not on home page,
+      // try to find a page with the closest matching slug
+      const potentialMatch = pages.find(page => 
+        currentPath.startsWith(page.slug) && page.slug !== '/'
+      );
+      
+      if (potentialMatch) {
+        setCurrentPageId(potentialMatch.id);
+      }
+    }
+  }, [location.pathname, pages, setCurrentPageId]);
 
   // Auto-save when exiting edit mode and warn before unload
   useEffect(() => {

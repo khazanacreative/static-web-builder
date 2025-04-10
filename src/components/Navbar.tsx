@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Pencil, Eye, ChevronDown, Globe, Lock, User, UserCog, Menu, LogIn } from 'lucide-react';
 import { useEditor } from '@/context/EditorContext';
@@ -41,9 +41,40 @@ const Navbar: React.FC = () => {
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [websiteIdentity, setWebsiteIdentity] = useState({
+    siteTitle: 'Website Identity',
+    logoUrl: '',
+    displayMode: 'text' // 'text', 'logo', or 'both'
+  });
   const isMobile = useIsMobile();
 
   const currentPage = pages.find((page) => page.id === currentPageId);
+  
+  // Extract website identity from the current page's header section
+  useEffect(() => {
+    if (pages.length > 0) {
+      const firstPage = pages[0];
+      const headerSection = firstPage.sections.find(section => section.type === 'header');
+      
+      if (headerSection) {
+        const titleElement = headerSection.elements.find(el => el.type === 'heading');
+        const logoElement = headerSection.elements.find(el => el.type === 'image');
+        
+        const hasLogo = logoElement && logoElement.content && logoElement.content !== '/placeholder.svg';
+        const hasTitle = titleElement && titleElement.content;
+        
+        let displayMode = 'text';
+        if (hasLogo && !hasTitle) displayMode = 'logo';
+        else if (hasLogo && hasTitle) displayMode = 'both';
+        
+        setWebsiteIdentity({
+          siteTitle: titleElement ? titleElement.content : 'Website Identity',
+          logoUrl: logoElement ? logoElement.content : '',
+          displayMode
+        });
+      }
+    }
+  }, [pages]);
   
   const handleToggleEditMode = () => {
     if (userRole === 'viewer') {
@@ -116,9 +147,18 @@ const Navbar: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
-            <Link to="/" className="text-xl font-bold text-editor-blue">
-              {/* This can be replaced with your logo/website identity */}
-              <span className="site-identity">Website Identity</span>
+            <Link to="/" className="flex items-center text-xl font-bold text-editor-blue">
+              {/* Website Identity - Now supports text, logo, or both */}
+              {(websiteIdentity.displayMode === 'logo' || websiteIdentity.displayMode === 'both') && websiteIdentity.logoUrl && (
+                <img 
+                  src={websiteIdentity.logoUrl} 
+                  alt="Logo" 
+                  className="h-8 w-auto mr-2" 
+                />
+              )}
+              {(websiteIdentity.displayMode === 'text' || websiteIdentity.displayMode === 'both') && (
+                <span className="site-identity">{websiteIdentity.siteTitle}</span>
+              )}
             </Link>
             
             <div className="hidden md:flex ml-6">
@@ -126,7 +166,10 @@ const Navbar: React.FC = () => {
                 <NavigationMenuList>
                   {navigation.map((item) => (
                     <NavigationMenuItem key={item.id}>
-                      <Link to={item.url} className="px-3 py-2 text-gray-700 hover:text-editor-blue">
+                      <Link 
+                        to={item.url} 
+                        className="px-3 py-2 text-gray-700 hover:text-editor-blue"
+                      >
                         {item.title}
                       </Link>
                     </NavigationMenuItem>
