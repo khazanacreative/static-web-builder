@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
 export type ElementType = 'heading' | 'text' | 'image' | 'button' | 'section';
@@ -45,7 +44,7 @@ export interface Section {
     gridRows?: string;
     gridGap?: string;
     gridType?: string;
-    isDraggableGrid?: boolean;  // Added this property
+    isDraggableGrid?: boolean;
   };
   type?: SectionType;
 }
@@ -67,6 +66,7 @@ interface EditorContextType {
   userRole: UserRole;
   navigation: MenuItem[];
   addPage: (page: Page) => void;
+  removePage: (pageId: string, newPageId: string) => void;
   setCurrentPageId: (id: string) => void;
   updatePage: (pageId: string, updatedPage: Partial<Page>) => void;
   toggleEditMode: () => void;
@@ -103,17 +103,33 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setPages((prevPages) => [...prevPages, page]);
   };
 
+  const removePage = (pageId: string, newPageId: string) => {
+    setPages((prevPages) => prevPages.filter(page => page.id !== pageId));
+    setNavigation((prevNav) => prevNav.filter(item => item.url !== pages.find(p => p.id === pageId)?.slug));
+    setCurrentPageId(newPageId);
+  };
+
   const updatePage = (pageId: string, updatedPage: Partial<Page>) => {
+    const oldPage = pages.find(p => p.id === pageId);
+    
     setPages((prevPages) =>
       prevPages.map((page) =>
         page.id === pageId ? { ...page, ...updatedPage } : page
       )
     );
+    
+    if (updatedPage.slug && oldPage?.slug) {
+      setNavigation((prevNav) =>
+        prevNav.map(item => 
+          item.url === oldPage.slug ? { ...item, url: updatedPage.slug } : item
+        )
+      );
+    }
   };
 
   const toggleEditMode = () => {
     if (userRole === 'viewer') {
-      return; // Viewers cannot toggle edit mode
+      return;
     }
     
     setIsEditMode((prev) => !prev);
@@ -364,21 +380,17 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setPages((prevPages) =>
       prevPages.map((page) => {
         if (page.id === pageId) {
-          // Find existing header section
           const headerIndex = page.sections.findIndex(section => section.type === 'header');
           const updatedSections = [...page.sections];
           
-          // Set type for new header section
           const sectionWithType: Section = { 
             ...newHeaderSection, 
             type: 'header' as SectionType 
           };
           
           if (headerIndex >= 0) {
-            // Replace existing header
             updatedSections[headerIndex] = sectionWithType;
           } else {
-            // Add new header at the beginning
             updatedSections.unshift(sectionWithType);
           }
           
@@ -396,21 +408,17 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setPages((prevPages) =>
       prevPages.map((page) => {
         if (page.id === pageId) {
-          // Find existing footer section
           const footerIndex = page.sections.findIndex(section => section.type === 'footer');
           const updatedSections = [...page.sections];
           
-          // Set type for new footer section
           const sectionWithType: Section = { 
             ...newFooterSection, 
             type: 'footer' as SectionType 
           };
           
           if (footerIndex >= 0) {
-            // Replace existing footer
             updatedSections[footerIndex] = sectionWithType;
           } else {
-            // Add new footer at the end
             updatedSections.push(sectionWithType);
           }
           
@@ -425,7 +433,6 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const updateNavigation = (items: MenuItem[]) => {
-    // Sort items by order
     const sortedItems = [...items].sort((a, b) => a.order - b.order);
     setNavigation(sortedItems);
   };
@@ -438,6 +445,7 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     userRole,
     navigation,
     addPage,
+    removePage,
     setCurrentPageId,
     updatePage,
     toggleEditMode,

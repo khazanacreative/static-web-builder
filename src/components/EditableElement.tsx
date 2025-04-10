@@ -1,7 +1,12 @@
 
-import React, { useState, useRef } from 'react';
-import { useEditor, PageElement } from '@/context/EditorContext';
+import React, { useState, useRef, useEffect } from 'react';
+import { PageElement } from '@/context/EditorContext';
+import { useEditor } from '@/context/EditorContext';
 import { cn } from '@/lib/utils';
+import { Trash2, Image } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface EditableElementProps {
   element: PageElement;
@@ -20,155 +25,227 @@ const EditableElement: React.FC<EditableElementProps> = ({
   draggable = false,
   onDragStart
 }) => {
-  const { isEditMode, updateElement, selectElement, selectedElementId, userRole } = useEditor();
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(element.content);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { 
+    isEditMode, 
+    selectElement, 
+    selectedElementId, 
+    updateElement,
+    removeElement,
+    userRole 
+  } = useEditor();
   
-  const isSelected = selectedElementId === element.id;
+  const elementRef = useRef<HTMLDivElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableContent, setEditableContent] = useState(element.content);
+  const [imgDialogOpen, setImgDialogOpen] = useState(false);
+  
   const canEdit = userRole === 'admin' || userRole === 'editor';
-  const isPageTitle = element.type === 'heading' && element.content.includes('Page');
+  const isSelected = selectedElementId === element.id;
+
+  useEffect(() => {
+    setEditableContent(element.content);
+  }, [element.content]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isEditMode && canEdit) {
-      selectElement(element.id);
-    }
+    if (!isEditMode || !canEdit) return;
+    
+    selectElement(element.id);
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isEditMode && canEdit && (element.type === 'heading' || element.type === 'text' || element.type === 'button')) {
+    if (!isEditMode || !canEdit) return;
+    
+    if (element.type === 'heading' || element.type === 'text' || element.type === 'button') {
       setIsEditing(true);
-      setEditContent(element.content);
+    } else if (element.type === 'image') {
+      setImgDialogOpen(true);
     }
   };
 
   const handleBlur = () => {
     setIsEditing(false);
-    if (editContent !== element.content) {
-      updateElement(pageId, sectionId, element.id, {
-        content: editContent
-      });
-      
-      // If this is a page title, also update the page title in context
-      if (isPageTitle) {
-        console.log('Updating page title to:', editContent);
-      }
+    
+    if (editableContent !== element.content) {
+      updateElement(pageId, sectionId, element.id, { content: editableContent });
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      (e.target as HTMLInputElement | HTMLTextAreaElement).blur();
+      handleBlur();
     }
   };
-  
-  const handleImageClick = () => {
-    if (isEditMode && canEdit && element.type === 'image') {
-      fileInputRef.current?.click();
-    }
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isEditMode || !canEdit) return;
+    
+    removeElement(pageId, sectionId, element.id);
   };
-  
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = () => {
-        updateElement(pageId, sectionId, element.id, {
-          content: reader.result as string
+        updateElement(pageId, sectionId, element.id, { 
+          content: reader.result as string 
         });
+        setImgDialogOpen(false);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const renderElement = () => {
-    if (isEditing) {
-      if (element.type === 'heading' || element.type === 'button') {
-        return (
-          <input
-            ref={inputRef}
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            autoFocus
-            className="w-full bg-white border border-blue-300 p-1 rounded"
-          />
-        );
-      }
-      if (element.type === 'text') {
-        return (
-          <textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            autoFocus
-            className="w-full min-h-[100px] bg-white border border-blue-300 p-1 rounded"
-          />
-        );
-      }
-    }
+  const handleImageUrlChange = (url: string) => {
+    updateElement(pageId, sectionId, element.id, { 
+      content: url 
+    });
+    setImgDialogOpen(false);
+  };
 
+  const renderElement = () => {
     switch (element.type) {
       case 'heading':
-        return <h2 className={cn(element.properties?.className)}>{element.content}</h2>;
-      case 'text':
-        return <p className={cn(element.properties?.className)}>{element.content}</p>;
-      case 'image':
-        return (
-          <>
-            <img 
-              src={element.content} 
-              alt="Content" 
-              className={cn(element.properties?.className)}
-              onClick={handleImageClick}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-            {isEditMode && canEdit && element.type === 'image' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 text-white opacity-0 hover:opacity-100 transition-opacity">
-                Click to change image
-              </div>
-            )}
-          </>
+        return isEditing ? (
+          <textarea
+            value={editableContent}
+            onChange={(e) => setEditableContent(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="w-full p-1 border rounded"
+            autoFocus
+          />
+        ) : (
+          <h2 className={element.properties?.className}>{element.content}</h2>
         );
+      
+      case 'text':
+        return isEditing ? (
+          <textarea
+            value={editableContent}
+            onChange={(e) => setEditableContent(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="w-full p-1 border rounded min-h-[100px]"
+            autoFocus
+          />
+        ) : (
+          <p className={element.properties?.className}>{element.content}</p>
+        );
+      
       case 'button':
-        return (
-          <button className={cn(element.properties?.className)}>
+        return isEditing ? (
+          <input
+            type="text"
+            value={editableContent}
+            onChange={(e) => setEditableContent(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="p-1 border rounded"
+            autoFocus
+          />
+        ) : (
+          <button className={element.properties?.className}>
             {element.content}
           </button>
         );
+      
+      case 'image':
+        return (
+          <img
+            src={element.content}
+            alt="Content"
+            className={element.properties?.className}
+          />
+        );
+      
       default:
-        return <div>Unknown element type</div>;
+        return <div>Unknown element type: {element.type}</div>;
     }
   };
 
   return (
-    <div
-      className={cn(
-        "relative",
-        className,
-        isSelected && isEditMode && "outline outline-2 outline-blue-500",
-        element.type === 'image' && isEditMode && canEdit && "cursor-pointer relative",
-        isEditMode && !isSelected && canEdit && "hover:outline hover:outline-1 hover:outline-blue-300"
-      )}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      draggable={draggable}
-      onDragStart={onDragStart}
-    >
-      {renderElement()}
-    </div>
+    <>
+      <div
+        ref={elementRef}
+        className={cn(
+          'relative',
+          isEditMode && canEdit && 'hover:outline hover:outline-blue-400',
+          isSelected && 'outline outline-blue-600 outline-2',
+          className
+        )}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        draggable={draggable}
+        onDragStart={onDragStart}
+      >
+        {renderElement()}
+        
+        {isEditMode && canEdit && isSelected && (
+          <button
+            className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+            onClick={handleDelete}
+            title="Delete element"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+
+      <Dialog open={imgDialogOpen} onOpenChange={setImgDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Image</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block font-medium mb-1">Upload Image</label>
+              <Input 
+                type="file" 
+                accept="image/*"
+                onChange={handleImageChange}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Upload an image from your device
+              </p>
+            </div>
+            
+            <div className="border-t pt-4">
+              <label className="block font-medium mb-1">Image URL</label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="https://example.com/image.jpg"
+                  defaultValue={element.content}
+                />
+                <Button 
+                  onClick={() => handleImageUrlChange(
+                    (document.querySelector('input[placeholder="https://example.com/image.jpg"]') as HTMLInputElement).value
+                  )}
+                >
+                  Use URL
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Enter a URL to an external image
+              </p>
+            </div>
+            
+            <div className="border p-3 rounded flex justify-center">
+              <img 
+                src={element.content} 
+                alt="Preview" 
+                className="max-h-40 object-contain" 
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

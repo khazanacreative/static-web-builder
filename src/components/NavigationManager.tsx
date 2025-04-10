@@ -1,12 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useEditor } from '@/context/EditorContext';
-import { Trash2, PlusCircle, GripVertical, Image } from 'lucide-react';
+import { Trash2, PlusCircle, GripVertical, Image, Link } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface MenuItem {
   id: string;
@@ -39,11 +46,15 @@ export const NavigationManager = () => {
     logoUrl: '/placeholder.svg'
   });
   const [newPageTitle, setNewPageTitle] = useState('');
+  const [newPageSlug, setNewPageSlug] = useState('');
   const [imgUploadDialogOpen, setImgUploadDialogOpen] = useState(false);
   
   const isAdmin = userRole === 'admin';
   
   useEffect(() => {
+    // Reset menu items when navigation changes externally
+    setMenuItems(navigation);
+    
     // Find header section in the first page to extract current website identity
     if (pages.length > 0) {
       const firstPage = pages[0];
@@ -61,7 +72,7 @@ export const NavigationManager = () => {
         }
       }
     }
-  }, [pages]);
+  }, [pages, navigation]);
   
   const handleAddMenuItem = () => {
     const newMenuItem = {
@@ -82,6 +93,14 @@ export const NavigationManager = () => {
     setMenuItems(menuItems.map(item => 
       item.id === id ? { ...item, [field]: value } : item
     ));
+  };
+
+  const handleLinkToExistingPage = (menuItemId: string, pageSlug: string) => {
+    const page = pages.find(p => p.slug === pageSlug);
+    if (page) {
+      handleUpdateMenuItem(menuItemId, 'url', pageSlug);
+      handleUpdateMenuItem(menuItemId, 'title', page.title);
+    }
   };
   
   const handleSaveMenu = () => {
@@ -139,7 +158,14 @@ export const NavigationManager = () => {
       return;
     }
     
-    const slug = `/${newPageTitle.toLowerCase().replace(/\s+/g, '-')}`;
+    // Create slug from title if not provided
+    let slug = newPageSlug.trim();
+    if (!slug) {
+      slug = `/${newPageTitle.toLowerCase().replace(/\s+/g, '-')}`;
+    } else if (!slug.startsWith('/')) {
+      slug = `/${slug}`; // Make sure slug starts with /
+    }
+    
     const newPageId = `page-${Date.now()}`;
     
     // Create the page
@@ -235,6 +261,7 @@ export const NavigationManager = () => {
     
     setMenuItems([...menuItems, newNavItem]);
     setNewPageTitle('');
+    setNewPageSlug('');
     
     toast({
       title: "Page Created",
@@ -283,6 +310,15 @@ export const NavigationManager = () => {
       reader.readAsDataURL(file);
     }
   };
+
+  const handleNewPageSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    // Ensure slug starts with / and contains only valid characters
+    if (value && !value.startsWith('/')) {
+      value = `/${value}`;
+    }
+    setNewPageSlug(value);
+  };
   
   if (!isAdmin) return null;
   
@@ -316,6 +352,7 @@ export const NavigationManager = () => {
                   <div className="font-medium w-12">Order</div>
                   <div className="font-medium flex-1">Title</div>
                   <div className="font-medium flex-1">URL</div>
+                  <div className="font-medium w-20">Link to</div>
                   <div className="w-8"></div>
                 </div>
                 
@@ -340,6 +377,21 @@ export const NavigationManager = () => {
                       onChange={(e) => handleUpdateMenuItem(item.id, 'url', e.target.value)}
                       className="flex-1"
                     />
+                    <Select
+                      onValueChange={(value) => handleLinkToExistingPage(item.id, value)}
+                    >
+                      <SelectTrigger className="w-20">
+                        <Link size={14} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Choose page</SelectItem>
+                        {pages.map(page => (
+                          <SelectItem key={page.id} value={page.slug}>
+                            {page.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <button 
                       onClick={() => handleRemoveMenuItem(item.id)}
                       className="text-red-500 p-1 hover:bg-red-50 rounded"
@@ -364,14 +416,18 @@ export const NavigationManager = () => {
               <div className="space-y-4">
                 <div className="bg-gray-50 p-4 rounded">
                   <h4 className="font-medium mb-2">Add New Page</h4>
-                  <div className="flex space-x-2">
+                  <div className="space-y-2">
                     <Input
                       value={newPageTitle}
                       onChange={(e) => setNewPageTitle(e.target.value)}
                       placeholder="Enter page title"
-                      className="flex-1"
                     />
-                    <Button onClick={handleAddNewPage}>
+                    <Input
+                      value={newPageSlug}
+                      onChange={handleNewPageSlugChange}
+                      placeholder="Custom URL (optional)"
+                    />
+                    <Button onClick={handleAddNewPage} className="w-full">
                       <PlusCircle size={16} className="mr-1" />
                       Add Page
                     </Button>
